@@ -1,37 +1,33 @@
 # Contributing
 
-Guidelines for working on the Learning Tracker codebase.
+How to work on the Learning Tracker codebase effectively.
 
 ---
 
 ## Development Setup
 
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for the full first-time setup guide.
+
+Quick start:
+
 ```bash
-# Clone and install
-git clone <repo-url>
-cd tracker_v2
 npm install
-
-# Configure environment
-cp .env.example .env
-# Fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
-
-# Run dev server
+cp .env.example .env   # fill in Supabase credentials
 npm run dev
 ```
 
 ---
 
-## Before Committing
+## Before Every Commit
 
-Always run:
+Both of these must pass clean — no exceptions:
 
 ```bash
-npm run typecheck   # No TypeScript errors
-npm run lint        # No ESLint errors
+npm run typecheck   # tsc --noEmit
+npm run lint        # ESLint
 ```
 
-The project uses strict TypeScript. Suppressing type errors with `@ts-ignore` or `eslint-disable` requires a written justification in the commit message.
+If either fails, fix the errors before committing. Do not suppress them with `@ts-ignore` or `eslint-disable` without a written justification in the commit message.
 
 ---
 
@@ -39,83 +35,126 @@ The project uses strict TypeScript. Suppressing type errors with `@ts-ignore` or
 
 ### TypeScript
 
-- Prefer explicit types on function return values and component props.
-- No `any` without a justification comment.
-- No `eslint-disable-line react-hooks/exhaustive-deps` — fix the dependency array or restructure the effect.
+- Strict mode is on (`tsconfig.app.json`: `"strict": true`). Work with it, not around it.
+- All function return types and component prop interfaces should be explicit.
+- No `any` without a comment explaining why it is unavoidable.
+- No `eslint-disable-line react-hooks/exhaustive-deps` — fix the effect or restructure the state.
 
 ### React
 
-- Components should do one thing. If a component is doing two things (rendering a list AND managing a create modal), split it.
-- Prefer reading from props over duplicating state locally. Local state is appropriate for:
-  - Uncontrolled inputs that save on blur (e.g. notes textarea)
-  - UI-only state (open/closed, hover) that does not need to be in the store
-- Avoid `useEffect` for data transformations — compute derived values during render or in a `useMemo`.
-- Keep component files under 250 lines. If a component grows beyond that, look for extractable sub-components.
+| Rule | Reason |
+|------|--------|
+| One concern per component | A component rendering a list AND managing a create modal should be two components |
+| Read from props, don't mirror state | Local state is for: uncontrolled inputs saving on blur, UI-only open/closed state |
+| No `useEffect` for data transforms | Compute derived values inline or with `useMemo` |
+| Components under 300 lines | If growing beyond this, find extractable sub-components |
+| No Supabase imports in components | All DB access goes through `useDataStore` |
 
 ### Naming
 
-- Components: PascalCase file names matching the default export
-- Hooks: `useCamelCase`, always start with `use`
-- Constants: `SCREAMING_SNAKE_CASE` for module-level constants
-- Types/interfaces: PascalCase
+| Thing | Convention | Example |
+|-------|-----------|---------|
+| Component files | PascalCase | `TopicDrawer.tsx` |
+| Hook files | camelCase, `use` prefix | `useDataStore.ts` |
+| Module-level constants | SCREAMING_SNAKE_CASE | `BOARD_ICONS` |
+| Types / interfaces | PascalCase | `ChecklistItem` |
+| Utility functions | camelCase | `generateHeatmap` |
 
-### Style
+### Styling
 
 - All styling via Tailwind utility classes.
-- Custom CSS classes (in `index.css`) only for patterns that appear 10+ times.
-- Do not write inline `style={{}}` props except for dynamic values that cannot be expressed as Tailwind classes (e.g. `style={{ width: \`${pct}%\` }}`).
+- Semantic colors via config maps (`statusConfig`, `boardColorMap`) — never hardcode `bg-sky-500` for a board color directly.
+- Custom CSS classes in `index.css` only for patterns repeated across many components (currently: `.surface`, `.glass`, `.btn-primary`, `.chip`, `.overlay`).
+- Inline `style={{}}` only for values that cannot be expressed as Tailwind classes, e.g. `style={{ width: \`${pct}%\` }}`.
+
+---
+
+## Where Things Go
+
+| New thing | Goes in |
+|-----------|---------|
+| Domain type or interface | `src/types/index.ts` |
+| Semantic config map or constant | `src/config/index.ts` |
+| Pure utility function | `src/utils/` (choose or create the right file) |
+| Supabase query or mutation | `src/hooks/useDataStore.ts` only |
+| Reusable UI primitive | `src/components/ui/` |
+| View or feature component | `src/components/` |
+
+Full guide: [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md)
 
 ---
 
 ## Component Checklist
 
-Before submitting a new component:
+Before opening a PR or considering a component done:
 
-- [ ] Props are typed with an explicit interface
+- [ ] Props typed with an explicit interface
 - [ ] No hardcoded user data, fake values, or `Math.random()`
-- [ ] No unused imports
-- [ ] No placeholder buttons that do nothing (remove or implement)
-- [ ] Loading and empty states handled
-- [ ] Destructive actions have confirmation
+- [ ] No unused imports (`npm run lint` will catch these)
+- [ ] No placeholder buttons that do nothing visible in the UI
+- [ ] Loading state handled (show skeleton or spinner)
+- [ ] Empty state handled (show a useful empty message, not just nothing)
+- [ ] Destructive actions have a `ConfirmDialog`
+- [ ] `npm run typecheck` passes clean
+- [ ] `npm run lint` passes clean
 
 ---
 
 ## Adding a New View
 
 1. Add the view name to the `View` union type in `Sidebar.tsx`.
-2. Add a nav item to `navItems` in `Sidebar.tsx` if it should appear in navigation.
-3. Handle the new view in the `main` rendering block in `App.tsx`.
-4. Create the component in `src/components/`.
-5. Update `ARCHITECTURE.md` with the new component's responsibility.
+2. Add a nav item to `navItems` in `Sidebar.tsx` (icon, label, id).
+3. Add a render case in the `main` block of `App.tsx`.
+4. Create `src/components/YourView.tsx`.
+5. Document it in the component table in `docs/ARCHITECTURE.md`.
 
 ---
 
-## Working with Supabase
+## Adding a New Mutation
 
-- Never write raw Supabase queries in component files. All queries live in `useDataStore.ts`.
-- After any schema change, add a new migration file in `supabase/migrations/` with a timestamp prefix.
-- Test mutations manually before committing — there are no automated tests yet.
+All mutations live in `useDataStore.ts`. The pattern:
+
+```typescript
+const myMutation = useCallback(async (params: MyParams): Promise<void> => {
+  const { error } = await supabase.from('table').update(...).eq('id', id);
+  if (error) { setError(error.message); return; }
+  await fetchAll(); // full consistency
+  // OR: optimistic update (see DL-007 in DECISION-LOG.md for when to use each)
+}, [fetchAll]);
+```
+
+Return it from the hook and add it to the `DataStore` type (inferred from `ReturnType<typeof useDataStore>`).
 
 ---
 
 ## Commit Messages
 
-Use imperative mood and be specific:
+Imperative mood. Specific enough to understand without reading the diff.
 
 ```
-✅ Remove hardcoded streak value from Dashboard
 ✅ Add delete confirmation dialog for topics
-✅ Extract boardIcons constant to src/config/boards.ts
-❌ Fix stuff
+✅ Extract BOARD_ICONS to src/config/index.ts
+✅ Fix stale checklist state in TopicDrawer after status change
+✅ Remove hardcoded streak from Dashboard
+
+❌ Fix bug
 ❌ Update component
+❌ WIP
+```
+
+If a commit suppresses a lint/type warning, the message must say why:
+
+```
+Suppress exhaustive-deps: fetchAll is stable (useCallback with empty deps)
 ```
 
 ---
 
-## What NOT to Do
+## What Not to Do
 
-- Do not add a new npm dependency without discussion — justify why the problem cannot be solved with what's already in the project.
-- Do not duplicate constants that already exist elsewhere in the codebase.
-- Do not ship placeholder UI (buttons that do nothing, fake data, hardcoded names).
-- Do not suppress TypeScript or ESLint warnings without a comment explaining why.
-- Do not make massive refactors in a single commit — prefer many small, reviewable changes.
+- **Don't add a dependency without discussion.** Justify why the existing toolset can't solve the problem.
+- **Don't duplicate constants.** Check `src/config/index.ts` before defining a new map.
+- **Don't ship placeholder UI.** If a button doesn't do anything, remove it or implement it.
+- **Don't suppress lint/type errors silently.** Leave a comment.
+- **Don't make massive refactors in one commit.** Prefer many small, reviewable changes.
+- **Don't write Supabase queries in component files.** Everything goes through `useDataStore`.

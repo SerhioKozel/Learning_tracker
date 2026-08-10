@@ -1,28 +1,38 @@
 # Project Structure
 
 **Project:** Learning Tracker  
-**Last Updated:** 2026-08-07  
+**Last Updated:** 2026-08-09
 
 ---
 
 ## Repository Root
 
 ```
-tracker_v2/
-├── .env.example            # Required environment variables (template)
+learning-tracker/
+├── .env.example            # Required env vars — copy to .env to run locally
+├── .env                    # Local secrets — git-ignored, never commit
 ├── index.html              # Vite HTML entry point
-├── package.json            # Dependencies and scripts
-├── tailwind.config.js      # Tailwind theme extension (ink ramp, animations)
-├── tsconfig.json           # TypeScript project references
-├── tsconfig.app.json       # App-level TypeScript config (strict)
+├── package.json            # name: "learning-tracker", scripts, dependencies
+├── tailwind.config.js      # Custom ink ramp, animations, darkMode: 'class'
+├── tsconfig.json           # Project references root
+├── tsconfig.app.json       # App TypeScript config (strict: true)
 ├── tsconfig.node.json      # Vite config TypeScript config
-├── vite.config.ts          # Vite configuration
-├── postcss.config.js       # PostCSS (Tailwind + autoprefixer)
-├── eslint.config.js        # ESLint flat config
+├── vite.config.ts          # Vite — React plugin, no aliases needed
+├── postcss.config.js       # Tailwind + autoprefixer
+├── eslint.config.js        # ESLint flat config — typescript-eslint + react-hooks
 ├── supabase/
-│   └── migrations/         # SQL migration files (timestamped)
+│   └── migrations/         # SQL migration files (run these in Supabase SQL editor)
 │       └── *.sql
-└── src/                    # Application source
+├── docs/                   # All project documentation
+│   ├── ARCHITECTURE.md     # System design, component model, data flow
+│   ├── BACKLOG.md          # Prioritised task list
+│   ├── CONTRIBUTING.md     # How to work on this codebase
+│   ├── DECISION-LOG.md     # Why specific choices were made
+│   ├── DESIGN-SYSTEM.md    # Colors, typography, components, tokens
+│   ├── PROJECT-STRUCTURE.md  ← you are here
+│   ├── ROADMAP.md          # What's built and what's planned
+│   └── SECURITY.md         # Security model and deployment guidance
+└── src/                    # Application source (see below)
 ```
 
 ---
@@ -31,129 +41,106 @@ tracker_v2/
 
 ```
 src/
-├── main.tsx                # Entry point — renders <App/> into #root
-├── App.tsx                 # Root layout, view routing, modals
-├── index.css               # Design system tokens + Tailwind layers
-├── vite-env.d.ts           # Vite env type declarations
+├── main.tsx                # Entry point — mounts <App /> into #root, applies saved theme
+├── App.tsx                 # Root layout, view routing, modals, keyboard shortcuts
+├── index.css               # Design tokens (CSS vars), Tailwind layers, component classes
+├── vite-env.d.ts           # Vite env type declarations (import.meta.env)
+│
+├── types/
+│   └── index.ts            # All domain interfaces and type aliases
+│                           # Board, Topic, Status, ChecklistItem, Resource, ...
+│
+├── config/
+│   └── index.ts            # Semantic config maps and shared constants
+│                           # statusConfig, boardColorMap, BOARD_ICONS,
+│                           # topicTypeConfig, difficultyConfig,
+│                           # HEATMAP_COLORS, BOARD_COLOR_OPTIONS
+│
+├── utils/
+│   ├── analytics.ts        # generateHeatmap, generateWeeklyActivity, computeStreak,
+│   │                       # generateCalendarEvents — all pure functions, no side effects
+│   ├── date.ts             # timeAgo(date), formatDate(date)
+│   └── id.ts               # generateId(prefix) — crypto.randomUUID based
 │
 ├── lib/
-│   └── supabase.ts         # Supabase client singleton
+│   └── supabase.ts         # Supabase client singleton (auth.persistSession: false)
 │
 ├── hooks/
-│   └── useDataStore.ts     # All remote state: boards, topics, mutations
-│
-├── data/
-│   └── mockData.ts         # ⚠️ Misnamed — contains: domain types,
-│                           #   semantic config maps, pure utility functions
+│   └── useDataStore.ts     # The only file that communicates with Supabase.
+│                           # Owns: boards[], topics[], loading, error
+│                           # Exposes: all mutations + data portability functions
+│                           # Contains: RawBoard/RawTopic interfaces, mapBoard/mapTopic
 │
 └── components/
-    ├── Sidebar.tsx          # Navigation, board list, user footer
-    ├── Dashboard.tsx        # Overview: stats, heatmap, recent boards
-    ├── BoardsList.tsx       # Board management: list, create, edit, delete
-    ├── BoardView.tsx        # Kanban view for a single board
-    ├── TopicDrawer.tsx      # Full topic detail panel (right-side drawer)
-    ├── Statistics.tsx       # Charts and aggregate learning metrics
-    ├── CalendarView.tsx     # Monthly calendar with review dates
-    ├── SettingsView.tsx     # Theme, export, import, reset
-    └── DesignSystem.tsx     # Internal design reference (dev only)
+    ├── ui/                 # Reusable UI primitives (no business logic)
+    │   └── ConfirmDialog.tsx
+    │
+    ├── Sidebar.tsx         # Exports `type View` — the canonical view union
+    ├── Dashboard.tsx       # Real streak, real activity — no hardcoded values
+    ├── BoardsList.tsx      # Board CRUD + create/edit modal + confirm delete
+    ├── BoardView.tsx       # Kanban columns + inline topic creation + confirm delete
+    ├── TopicDrawer.tsx     # Full topic panel: all fields, checklist, resources, history
+    ├── Statistics.tsx      # Charts and aggregate metrics
+    ├── CalendarView.tsx    # Monthly calendar with review date events
+    ├── SettingsView.tsx    # Theme, export/import, reset
+    └── DesignSystem.tsx    # Internal design reference — not linked in production nav
 ```
 
 ---
 
-## File Responsibilities
+## Key Conventions
 
-### `App.tsx`
+### Types flow from `src/types/index.ts`
 
-The root component. Manages:
-- Active view state (`View` string)
-- Active board and topic cursors
-- Search palette (open/closed, query, results)
-- New topic modal (open/closed, form state)
-- Theme (dark/light) + localStorage persistence
-- Keyboard shortcut listeners (Cmd+K, Escape)
+Every component and hook imports its types from here. No inline `interface` definitions in component files unless the type is purely local (e.g. a form state shape used only in that file).
 
-Renders: Sidebar, the active view component, TopicDrawer overlay, search palette overlay, new topic modal overlay.
+### Config flows from `src/config/index.ts`
 
-**Size:** 372 lines. A future refactor should extract the modals and keyboard shortcuts into dedicated components/hooks.
+Every map from a domain value to a display value (color, label, icon, class) lives here. Never hardcode `'bg-sky-500'` in a component — look it up from `boardColorMap[board.color]`.
 
----
+### Supabase access is isolated to `useDataStore.ts`
 
-### `useDataStore.ts`
+No component file imports `supabase` directly. All queries and mutations go through `useDataStore`. This makes the data layer replaceable and testable in isolation.
 
-The only file that talks to Supabase. Contains:
-- `RawBoard` and `RawTopic` interfaces (Supabase column shapes)
-- `mapBoard()` and `mapTopic()` — snake_case → camelCase translation
-- All query and mutation functions
+### `BOARD_ICONS` is the only board icon registry
 
-All mutations call `fetchAll()` after completing.
+Previously the same icon map was defined identically in three files. It now lives exclusively in `src/config/index.ts`. All components import `BOARD_ICONS` from there.
+
+### `HEATMAP_COLORS` is the only heatmap palette
+
+Same principle — previously duplicated in `Dashboard.tsx` and `Statistics.tsx`. Now defined once in `src/config/index.ts`.
 
 ---
 
-### `data/mockData.ts`
+## What Does Not Exist (and Why)
 
-**The name is misleading.** This file contains no mock data. It contains:
-
-1. **Domain type definitions** — `Status`, `TopicType`, `Difficulty`, `Topic`, `Board`, `ChecklistItem`, `Resource`, `HistoryEntry`, `CalendarEvent`
-2. **Semantic config maps** — `statusConfig`, `boardColorMap`, `topicTypeConfig`, `difficultyConfig`, `resourceTypeConfig`, `historyActionConfig`
-3. **Pure utility functions** — `timeAgo()`, `formatDate()`, `generateHeatmap()`, `generateWeeklyHours()`, `generateCalendarEvents()`
-
-A planned refactor (TASK-02 in BACKLOG.md) will rename and split this into `src/types/`, `src/config/`, and `src/utils/`.
-
----
-
-### `components/Sidebar.tsx`
-
-Exports:
-- `type View` — the view string union used across the app
-- `default Sidebar` — the left navigation panel
-
-Contains a local `query` state for the board filter input. Everything else comes from props.
+| Missing | Reason |
+|---------|--------|
+| `src/context/` | No React Context needed — data passes as props from App.tsx |
+| `src/store/` | No Zustand/Redux — `useDataStore` is sufficient |
+| `src/api/` | No API abstraction layer — Supabase client is the API |
+| `src/pages/` | No router — views are components rendered conditionally in App.tsx |
+| `src/tests/` | No automated tests yet — see BACKLOG.md BL-013 (planned) |
+| `src/services/` | No service layer — thin enough to not need one |
 
 ---
 
-### `components/TopicDrawer.tsx`
+## Adding New Things
 
-The most complex component (506 lines). Renders as a fixed right-side panel over the content area.
+### New domain type
+→ Add to `src/types/index.ts`
 
-Local state: `notes` (debounced save on blur). All other fields derive from the `topic` prop and write through on interaction.
+### New config map or constant
+→ Add to `src/config/index.ts`
 
-**Known issue:** The `useEffect` that syncs topic data on `topicId` change has a suppressed dependency warning. See TASK-03 in BACKLOG.md.
+### New pure utility function
+→ Add to the appropriate file in `src/utils/` (or create a new one if the domain is distinct)
 
----
+### New Supabase query or mutation
+→ Add to `src/hooks/useDataStore.ts` only
 
-### `lib/supabase.ts`
+### New reusable UI primitive (no domain knowledge)
+→ Add to `src/components/ui/`
 
-Creates and exports the Supabase client singleton. Reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from the environment. `auth.persistSession: false` because there is no authentication.
-
----
-
-## Planned Future Structure
-
-As the codebase grows, the target structure is:
-
-```
-src/
-├── types/
-│   └── index.ts            # All domain type definitions
-├── config/
-│   ├── status.ts           # statusConfig
-│   ├── boards.ts           # boardColorMap, BOARD_ICONS
-│   └── topics.ts           # topicTypeConfig, difficultyConfig, etc.
-├── utils/
-│   ├── date.ts             # timeAgo, formatDate
-│   └── analytics.ts        # generateHeatmap, generateWeeklyHours, etc.
-├── hooks/
-│   ├── useDataStore.ts
-│   ├── useSearchPalette.ts
-│   └── useKeyboardShortcuts.ts
-├── components/
-│   ├── ui/                 # Reusable primitives
-│   │   ├── ConfirmDialog.tsx
-│   │   ├── SearchPalette.tsx
-│   │   └── NewTopicModal.tsx
-│   └── views/              # View-level components (current flat list)
-└── lib/
-    └── supabase.ts
-```
-
-This migration should happen incrementally, one file at a time, not as a single large refactor.
+### New view
+→ See "Adding a New View" in [CONTRIBUTING.md](./CONTRIBUTING.md)

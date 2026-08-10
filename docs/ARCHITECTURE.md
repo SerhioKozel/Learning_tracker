@@ -1,177 +1,200 @@
 # Architecture
 
 **Project:** Learning Tracker  
-**Version:** v2 (React + Supabase)  
-**Last Updated:** 2026-08-07  
+**Stack:** React 18 · TypeScript · Vite · Tailwind CSS · Supabase  
+**Last Updated:** 2026-08-09
 
 ---
 
 ## Overview
 
-Learning Tracker is a single-page application with a flat, three-layer architecture:
+Learning Tracker is a single-page application with a deliberate three-layer architecture:
 
 ```
-┌──────────────────────────────────────────────────┐
-│  UI Layer (React components)                     │
-│  App.tsx + 9 view/feature components             │
-├──────────────────────────────────────────────────┤
-│  State Layer (custom hook)                       │
-│  useDataStore — owns all async state             │
-├──────────────────────────────────────────────────┤
-│  Data Layer (Supabase)                           │
-│  PostgreSQL + RLS, accessed via supabase-js      │
-└──────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  UI Layer                                          │
+│  App.tsx + view components + ui primitives         │
+├────────────────────────────────────────────────────┤
+│  State Layer                                       │
+│  useDataStore — owns all remote state + mutations  │
+├────────────────────────────────────────────────────┤
+│  Data Layer                                        │
+│  Supabase (PostgreSQL + RLS), via supabase-js      │
+└────────────────────────────────────────────────────┘
 ```
 
-This is intentionally simple. The application is single-user, has no authentication flow, and has no complex derived state that would justify a state management library.
+The architecture is intentionally simple. The application is single-user, has no authentication flow, and has no complex derived state that would justify a state management library or server-state cache.
 
 ---
 
-## Component Model
+## Source Layout
 
-### App.tsx — Layout Shell and View Router
+```
+src/
+├── types/
+│   └── index.ts          # All domain type definitions
+├── config/
+│   └── index.ts          # Semantic config maps + shared constants
+├── utils/
+│   ├── analytics.ts      # Heatmap, weekly activity, streak
+│   ├── date.ts           # timeAgo, formatDate
+│   └── id.ts             # generateId (crypto.randomUUID)
+├── lib/
+│   └── supabase.ts       # Supabase client singleton
+├── hooks/
+│   └── useDataStore.ts   # All remote state and mutations
+├── components/
+│   ├── ui/
+│   │   └── ConfirmDialog.tsx
+│   ├── Sidebar.tsx
+│   ├── Dashboard.tsx
+│   ├── BoardsList.tsx
+│   ├── BoardView.tsx
+│   ├── TopicDrawer.tsx
+│   ├── Statistics.tsx
+│   ├── CalendarView.tsx
+│   ├── SettingsView.tsx
+│   └── DesignSystem.tsx  # Dev-only reference, not in nav
+├── App.tsx               # Root layout, routing, modals, shortcuts
+├── main.tsx
+└── index.css             # Design tokens + Tailwind layers
+```
 
-`App.tsx` is the root component. It:
+---
 
-- Renders the two-column layout (Sidebar + main area)
-- Manages the active `view` state (a string union, not URL routing)
-- Holds the `activeBoardId` and `activeTopicId` cursor state
-- Manages the search palette and new topic modal
-- Owns keyboard shortcut listeners
-- Initializes the `useDataStore` hook and passes its output down as props
+## Domain Model
 
-All data flows downward from `App.tsx` as props. No context, no global store.
+```
+Board
+  id, title, description
+  color: sky | teal | amber | rose | emerald
+  icon: Layout | Network | Binary | Server | Cloud
+  topicCount, completedCount        ← computed on read
+  updatedAt (formatted), updatedAtRaw (ISO)
 
-### View Components
+Topic
+  id, title, description
+  status: to_learn | learning | practice | review | completed
+  boardId → Board (cascade delete)
+  type: learning | book | video | course | documentation | ...
+  difficulty: easy | medium | hard
+  progress: 0–100
+  tags: string[]
+  reviewDate: date | null
+  checklist: ChecklistItem[]        ← JSONB
+  resources: Resource[]             ← JSONB
+  notes: string
+  history: HistoryEntry[]           ← JSONB (last 50)
+  updatedAt (formatted), createdAt
+```
 
-Each view receives `boards`, `topics`, and callback props from `App.tsx`. They are responsible only for presentation and user interaction — no data fetching.
+All domain types live in `src/types/index.ts`.  
+All semantic mappings (labels, colors, icons per status/type/difficulty) live in `src/config/index.ts`.
+
+---
+
+## Component Responsibilities
+
+### `App.tsx` — Layout shell
+
+Owns:
+- Active view state (`View` string union — no URL router in v1)
+- `activeBoardId` / `activeTopicId` cursor state
+- Search palette (open, query, results)
+- New topic modal
+- Keyboard shortcut listeners (`Cmd+K`, `Escape`) — unified in one `useEffect`
+- Theme (dark/light) + `localStorage` persistence
+
+Passes all data and callbacks downward as props. No context, no global store.
+
+### View components
 
 | Component | Responsibility |
 |-----------|---------------|
-| `Sidebar.tsx` | Navigation, board list, theme toggle |
-| `Dashboard.tsx` | Overview stats, recent boards, activity heatmap, upcoming reviews |
-| `BoardsList.tsx` | Board management: list, create, edit, delete, duplicate |
-| `BoardView.tsx` | Kanban columns view for a single board; topic cards |
-| `TopicDrawer.tsx` | Full topic detail panel: properties, checklist, resources, notes, history |
-| `Statistics.tsx` | Charts and aggregate metrics |
-| `CalendarView.tsx` | Monthly calendar with review dates |
-| `SettingsView.tsx` | Theme, export, import, reset |
-| `DesignSystem.tsx` | Internal design reference (not linked in production) |
+| `Sidebar.tsx` | Navigation, board list with progress, filter input |
+| `Dashboard.tsx` | Stats (real streak, real activity), heatmap, upcoming reviews, recent topics |
+| `BoardsList.tsx` | Board CRUD, sort by `updatedAtRaw` timestamp |
+| `BoardView.tsx` | Kanban columns, inline topic creation, confirm delete |
+| `TopicDrawer.tsx` | Full topic detail: status, progress slider, tags, checklist, resources, notes, history |
+| `Statistics.tsx` | Weekly activity chart, status donut, board progress, difficulty distribution |
+| `CalendarView.tsx` | Monthly calendar with review date events |
+| `SettingsView.tsx` | Theme toggle, JSON export/import, data reset |
 
-### TopicDrawer
+### `src/components/ui/` — Primitives
 
-The drawer is the most complex component. It maintains local optimistic state for the `notes` textarea (saves on blur) and syncs from props when the active topic changes. All other fields (status, type, difficulty, checklist, resources) write through to Supabase immediately on interaction.
+| Component | Responsibility |
+|-----------|---------------|
+| `ConfirmDialog.tsx` | Reusable modal for destructive actions. Used by BoardsList and BoardView and TopicDrawer |
 
 ---
 
-## Data Layer
+## State Management
 
-### useDataStore
+### `useDataStore`
 
-The single hook that owns all remote state. It exposes:
+Single hook. Owns all remote state. Exposes:
 
 ```typescript
-{
-  boards: Board[];
-  topics: Topic[];
-  loading: boolean;
-  error: string | null;
-  refresh: () => Promise<void>;
+// State
+boards: Board[]
+topics: Topic[]
+loading: boolean
+error: string | null
+refresh: () => Promise<void>
 
-  // Board mutations
-  createBoard, updateBoard, deleteBoard, duplicateBoard
+// Board mutations (write → fetchAll)
+createBoard, updateBoard, deleteBoard, duplicateBoard
 
-  // Topic mutations
-  createTopic, updateTopic, deleteTopic
-  addChecklistItem, addResource
+// Topic mutations (write → fetchAll)
+createTopic, updateTopic, deleteTopic
 
-  // Data management
-  exportData, importData, resetData
-}
+// Sub-item mutations (optimistic: local update first, Supabase second, rollback on error)
+addChecklistItem, deleteChecklistItem
+addResource, deleteResource
+
+// Data portability
+exportData, importData, resetData
 ```
 
-All mutations call `fetchAll()` after completing, which re-fetches both tables. This ensures UI consistency at the cost of an extra network round-trip per mutation. For a single-user personal tool this is acceptable.
+**Mutation strategy:**
 
-### Data Mapping
+- `createBoard / updateBoard / deleteBoard / createTopic / updateTopic / deleteTopic` — write to Supabase, then call `fetchAll()` for full consistency.
+- `addChecklistItem / deleteChecklistItem / addResource / deleteResource` — optimistic: apply to local state immediately for instant UI feedback, write to Supabase in background, rollback on error. No `fetchAll()`.
 
-Supabase returns snake_case column names. The `mapBoard` and `mapTopic` functions in `useDataStore.ts` translate to camelCase domain types. The inverse mapping (camelCase → snake_case) happens inline in each mutation.
+**Why no `fetchAll` on sub-items:** These are toggled repeatedly (checkbox, resource done) and the optimistic update is the correct final state in the vast majority of cases. The rollback covers the rare network failure.
 
-### Type Definitions
+---
 
-Domain types are defined in `src/data/mockData.ts` (the file name is a historical artifact — it contains no mock data). Key types:
+## Data Flow
 
 ```
-Topic      — the primary learning unit
-Board      — a collection of topics organized around a subject
-Status     — to_learn | learning | practice | review | completed
-Difficulty — easy | medium | hard
-TopicType  — learning | book | video | course | documentation | ...
+User interaction (e.g. toggle checklist item)
+        │
+        ▼
+  Component calls prop callback
+  (e.g. onDeleteChecklistItem)
+        │
+        ▼
+  App.tsx delegates to store method
+        │
+        ├─── Optimistic? ──► Update local topics state immediately
+        │                    (component re-renders instantly)
+        │
+        ▼
+  useDataStore writes to Supabase
+        │
+        ├─── Success? ──► No action (local state already correct)
+        │
+        └─── Error? ──► Rollback local state + set error
 ```
 
 ---
 
-## Design System
-
-The visual language is implemented as a combination of Tailwind utility classes and CSS custom properties.
-
-**Custom color scale:** The `ink` ramp (ink-100 through ink-990) maps to CSS variables that invert between dark and light themes. This means the same Tailwind class (`text-ink-100`, `bg-ink-800`) produces the correct color in both themes without separate class variants.
-
-**Component classes** (defined in `index.css`):
-- `.surface` — card background with hairline border
-- `.glass` / `.glass-strong` — blurred glass background for header/sidebar
-- `.btn-primary` / `.btn-ghost` / `.btn-soft` — button variants
-- `.chip` — inline badge/tag
-- `.card-hover` — lift-on-hover transition
-- `.overlay` — modal backdrop
-
-See [DESIGN-SYSTEM.md](./DESIGN-SYSTEM.md) for the full reference.
-
----
-
-## View Routing
-
-View state is managed as a `useState<View>` string in `App.tsx`. There is no URL router.
-
-```typescript
-type View = 'dashboard' | 'boards' | 'board' | 'stats' | 'calendar' | 'settings' | 'design';
-```
-
-**Trade-off:** This approach is simple and avoids a routing dependency. The cost is that the browser back button does not work — navigating back exits the app rather than returning to the previous view. For a self-contained personal tool this is acceptable in v1.
-
-**Future path:** React Router v6 can be added incrementally. Each `View` string maps 1:1 to a route path. The component tree structure does not need to change.
-
----
-
-## Data Flow Diagram
-
-```
-User interaction
-       │
-       ▼
-  Component (e.g. TopicDrawer)
-       │ calls onUpdate / onDelete / etc.
-       ▼
-  App.tsx callback
-       │ delegates to store method
-       ▼
-  useDataStore (mutation)
-       │ writes to Supabase
-       ▼
-  fetchAll()
-       │ reads boards + topics
-       ▼
-  setBoards() + setTopics()
-       │ React re-render
-       ▼
-  All components receive fresh props
-```
-
----
-
-## Supabase Schema
+## Database Schema
 
 ```sql
-boards (
+-- boards
+CREATE TABLE boards (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title       text NOT NULL,
   description text NOT NULL DEFAULT '',
@@ -180,9 +203,10 @@ boards (
   icon        text NOT NULL DEFAULT 'Layout',
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
-)
+);
 
-topics (
+-- topics
+CREATE TABLE topics (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title       text NOT NULL,
   description text NOT NULL DEFAULT '',
@@ -200,24 +224,41 @@ topics (
   history     jsonb NOT NULL DEFAULT '[]',
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
-)
+);
 ```
 
-`checklist`, `resources`, and `history` are stored as JSON arrays in PostgreSQL. This avoids junction tables for a single-user application while keeping the data queryable if needed in the future.
+`checklist`, `resources`, `history` are JSONB arrays — avoids junction tables for a single-user app. See [DECISION-LOG.md](./DECISION-LOG.md#dl-005) for rationale.
 
 ---
 
-## Security
+## View Routing
 
-RLS is enabled on both tables. All policies use `USING (true)` / `WITH CHECK (true)` — any holder of the anon key can read and write all data. This is correct for a personal, single-tenant tool accessed only by its owner.
+```typescript
+type View = 'dashboard' | 'boards' | 'board' | 'stats' | 'calendar' | 'settings';
+```
 
-**If you share the Supabase URL and anon key, anyone can read and modify your data.** Keep the anon key private or add authentication before exposing the app publicly.
+Managed as `useState<View>` in `App.tsx`. No URL router in v1.
+
+**Known limitation:** Browser back/forward exits the app rather than returning to the previous view. Deep linking to a specific board or topic is not possible.
+
+**Migration path to React Router v6:** Each `View` maps 1:1 to a route path. The component tree does not need to change — only `App.tsx` routing logic and `Sidebar.tsx` nav links. Tracked in [BACKLOG.md](./BACKLOG.md#bl-005).
 
 ---
 
-## Known Architectural Limitations
+## Security Model
 
-1. **No URL routing** — browser back/forward does not work between views.
-2. **Full re-fetch on every mutation** — every write triggers a re-fetch of all boards and topics. Will degrade with larger data sets.
-3. **No offline support** — the app requires a network connection. The legacy project was LocalStorage-backed (offline-first); v2 traded this for cloud sync.
-4. **Single file for types + config + utils** (`mockData.ts`) — should be split as the codebase grows.
+RLS is enabled on both tables. Policies use `USING (true)` — any holder of the anon key can read and write all data. This is correct for a personal, self-hosted tool.
+
+**Do not share your `VITE_SUPABASE_ANON_KEY` publicly.** See [SECURITY.md](./SECURITY.md) for full guidance.
+
+---
+
+## Known Limitations
+
+| # | Limitation | Tracked In |
+|---|-----------|-----------|
+| 1 | No URL routing — back button exits the app | BL-005 |
+| 2 | Full `fetchAll()` on structural mutations — degrades at scale | BL-010 (Realtime) |
+| 3 | No offline support — requires network | BL-012 |
+| 4 | No authentication — anon key access only | BL-011 |
+| 5 | `history` array grows unbounded per topic | BL-001 |

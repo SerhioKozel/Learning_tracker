@@ -1,141 +1,112 @@
 # Roadmap
 
 **Project:** Learning Tracker  
-**Last Updated:** 2026-08-07  
-
-This roadmap tracks what is built, what is missing, and what is planned. It is derived from the original functional requirements (FR-xxx), the audit findings, and the improvement backlog.
+**Last Updated:** 2026-08-09
 
 ---
 
-## Currently Built (v2 baseline)
+## Currently Built (v2.1)
 
 ### Core
 
-- [x] Board CRUD (create, edit, delete, duplicate)
-- [x] Topic CRUD (create, edit, delete)
+- [x] Board CRUD — create, edit, delete, duplicate
+- [x] Topic CRUD — create, edit, delete (with confirmation)
 - [x] Kanban column view per board (5 fixed stages)
-- [x] Topic drawer with full detail panel
 - [x] Status transitions with history tracking
-- [x] Checklist with progress tracking
-- [x] Resource links (URL, book, video, docs, GitHub)
-- [x] Notes (auto-saved on blur)
+- [x] Progress slider (0–100%, step 5%)
+- [x] Checklist with item add, toggle, delete
+- [x] Resource links with add, toggle done, delete
+- [x] Notes — auto-saved on blur
 - [x] Review date scheduling
 - [x] Topic type and difficulty metadata
-- [x] Tags display
+- [x] Tag add and remove
 
-### Search & Filter
+### Search & Discovery
 
 - [x] Global search palette (Cmd+K) — topics and boards
-- [x] Board filtering in sidebar
-- [x] Board sort by updated / name / progress in BoardsList
+- [x] Board filter in sidebar
+- [x] Board sort by recent / A-Z / progress (using raw timestamps)
 
 ### Dashboard & Analytics
 
-- [x] Overview stats (progress, active, completed, streak placeholder)
-- [x] Recent boards grid
+- [x] Real streak — computed from `updatedAt` timestamps
+- [x] Real weekly activity — counted from actual data, no random padding
+- [x] Activity heatmap (36 weeks)
 - [x] Upcoming reviews panel
 - [x] Recently updated topics
-- [x] Activity heatmap
-- [x] Weekly activity chart
+- [x] Board overview grid
 
 ### Statistics
 
-- [x] Board completion chart
-- [x] Status distribution
+- [x] Weekly activity bar chart
+- [x] Status distribution + donut
+- [x] Board progress bars
 - [x] Difficulty distribution
-- [x] Topic type distribution
-- [x] SVG mastery ring
+- [x] Topic type breakdown
 
 ### Calendar
 
-- [x] Monthly calendar view
+- [x] Monthly view
 - [x] Review date events
 
 ### Settings
 
-- [x] Dark/light theme toggle
-- [x] Export data (JSON)
-- [x] Import data (JSON)
+- [x] Dark / light theme with persistence
+- [x] JSON export
+- [x] JSON import
 - [x] Reset all data
 
----
+### Infrastructure
 
-## Phase 2 — Quality and Completeness
-
-These items close gaps in the current build. They are tracked in the backlog (BACKLOG.md).
-
-### Critical (now)
-
-- [ ] Remove hardcoded user data (name, streak, fake hours) — TASK-01
-- [ ] Rename `mockData.ts` and split types/config/utils — TASK-02
-- [ ] Fix stale state in TopicDrawer (remove eslint-disable) — TASK-03
-
-### High (next sprint)
-
-- [ ] Extract shared `boardIcons` / `heatmapColors` constants — TASK-04
-- [ ] Delete confirmation dialogs for topics and boards — TASK-05
-- [ ] Progress slider in TopicDrawer — TASK-06
-- [ ] Tag add/remove in TopicDrawer — TASK-07
-- [ ] Delete checklist item UI — TASK-08 (FR-402)
-- [ ] Delete resource UI — TASK-08 (FR-502)
-- [ ] Remove DesignSystem from production nav — TASK-09
-- [ ] Remove non-functional Bell and Star placeholders — TASK-10
-- [ ] Fix `sortRank` fragility with raw timestamps — TASK-11
-
-### Medium (following sprint)
-
-- [ ] Extract keyboard shortcuts and modals from App.tsx — TASK-12
-- [ ] Optimistic updates for toggle operations — TASK-13
-- [ ] `.env.example`, README, update package.json name — TASK-14
-
-### Low
-
-- [ ] Lazy load views — TASK-15
-- [ ] Collision-safe UUID generation — TASK-16
-- [ ] Compute real streak from activity data — TASK-17
+- [x] Supabase PostgreSQL backend
+- [x] Optimistic updates for checklist and resource operations
+- [x] Collision-safe UUIDs via `crypto.randomUUID()`
+- [x] Confirmation dialogs for all destructive actions
+- [x] TypeScript strict mode — zero errors
+- [x] ESLint clean — zero warnings
 
 ---
 
-## Phase 3 — Deferred Features
+## Phase 2 — Completeness (Next)
 
-From original functional requirements (FR-xxx):
+Tracked in [BACKLOG.md](./BACKLOG.md).
 
-- [ ] FR-304: Duplicate topic
-- [ ] FR-703: Filter topics by status / type / difficulty within board view
-- [ ] FR-201/202/203: Column reordering, renaming, custom columns
-
----
-
-## Phase 4 — Future Vision
-
-These items are out of scope for the current version but the architecture should not prevent them:
-
-### User Experience
-- **Drag-and-drop topic cards** between Kanban columns — the most impactful missing UX feature for a Kanban tool
-- **Inline topic title editing** — double-click a card to rename
-- **Keyboard navigation** between topics and columns
-- **Duplicate topic** (FR-304)
-
-### Data & Sync
-- **URL routing** — browser back button works, deep-linking to boards/topics
-- **Offline support** — PWA with service worker, sync on reconnect
-- **Authentication** — Supabase Auth, user-scoped data
-- **Multi-device sync** — real-time via Supabase subscriptions
-
-### Product Features
-- **Notifications / reminders** — review date alerts
-- **Board templates** — pre-built topic sets for common learning paths (e.g. "Full-Stack Web Dev")
-- **Spaced repetition scheduling** — auto-schedule review dates based on topic history
-- **Learning time tracking** — log sessions against topics
-- **Mobile application** — React Native or PWA
+| ID | Feature | Priority |
+|----|---------|----------|
+| BL-001 | Cap history array at 50 entries | High |
+| BL-002 | Duplicate topic | High |
+| BL-003 | Filter topics within board view (status, type, difficulty) | High |
+| BL-004 | Editable topic description in drawer | High |
+| BL-006 | Lazy-load view components | Medium |
+| BL-007 | Inline topic title editing | Medium |
+| BL-008 | Improved empty state for new users | Medium |
 
 ---
 
-## Design Constraints (must not change)
+## Phase 3 — Architecture
 
-The following product principles must be preserved as new features are added:
+| ID | Feature | Priority |
+|----|---------|----------|
+| BL-005 | React Router — URL navigation, back button | Medium |
+| BL-010 | Supabase Realtime — multi-tab sync | Medium |
+
+---
+
+## Phase 4 — Growth Features
+
+| ID | Feature | Notes |
+|----|---------|-------|
+| BL-009 | Drag-and-drop topic cards between columns | Requires `@dnd-kit` |
+| BL-011 | Authentication (Supabase Auth) | Required before public deployment |
+| BL-012 | PWA / offline support | High complexity |
+
+---
+
+## Design Constraints
+
+These product principles must be preserved as new features are added:
 
 1. **Any action in under 3 clicks** — the UX must stay fast
 2. **Data portability** — export/import must always work
 3. **Single-user simplicity** — do not add complexity that only matters for multi-user scenarios
-4. **Visual progress** — learning progress must always be immediately visible from any view
+4. **Visual progress** — learning progress must be visible from every view

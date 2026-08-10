@@ -1,34 +1,35 @@
 # Design System
 
 **Project:** Learning Tracker  
-**Last Updated:** 2026-08-07  
+**Last Updated:** 2026-08-09
 
-The visual language is implemented as a combination of Tailwind CSS utility classes and CSS custom properties (`index.css`). The system is designed to work in both dark (default) and light themes through a single set of semantic color tokens.
+The visual language is implemented as Tailwind CSS utility classes extended with CSS custom properties (`index.css`). The system supports dark and light themes from a single set of class names — no `dark:` variants needed.
 
 ---
 
 ## Principles
 
-- **Semantic tokens over raw values** — components reference `ink-700` (a surface color), not `#3a4150`. This lets the theme invert without class duplication.
-- **Minimal custom CSS** — almost everything is Tailwind utilities. Custom classes exist only for patterns repeated 10+ times (`.surface`, `.btn-primary`, `.chip`).
-- **Dark-first** — the dark theme is `:root`. Light is a `.light` class override on `<html>`.
+- **Semantic tokens, not raw values** — components reference `ink-700` (a surface color), never `#3a4150`. Theme switching inverts the ink ramp transparently.
+- **Dark-first** — `:root` defines dark values. `.light` on `<html>` overrides them.
+- **Minimal custom CSS** — Tailwind utilities handle almost everything. Custom classes exist only for patterns repeated across many components (`.surface`, `.btn-primary`, `.chip`).
+- **Single source of truth** — every semantic config map (statusConfig, boardColorMap, etc.) lives in `src/config/index.ts`. Components never hardcode color class names directly.
 
 ---
 
-## Color Ramps
+## Color System
 
-### Ink — Surfaces, Text, Borders
+### Ink Ramp — Surfaces, Text, Borders
 
-The `ink` ramp is a custom neutral scale that inverts between themes. In dark mode it runs from very dark (ink-980) to near-white (ink-100). In light mode those values flip — `--ink-980: #f0f2f7`, `--ink-100: #1a1f2e`.
+The `ink` ramp is a custom neutral scale that inverts between themes. In dark mode it runs from near-black (ink-980) to near-white (ink-100). In light mode those values flip.
 
-| Token | Dark | Light | Typical Use |
-|-------|------|-------|-------------|
+| Token | Dark value | Light value | Typical use |
+|-------|-----------|------------|-------------|
 | `ink-980` | `#0c0e13` | `#f0f2f7` | App background |
 | `ink-950` | `#101218` | `#f4f6fa` | Page background |
-| `ink-900` | `#151821` | `#ffffff` | Surface (cards) |
-| `ink-800` | `#1c2029` | `#f7f8fb` | Raised surface, inputs |
-| `ink-700` | `#3a4150` | `#dde1eb` | Borders, disabled elements |
-| `ink-600` | `#5a6478` | `#b0b9c8` | Muted labels |
+| `ink-900` | `#151821` | `#ffffff` | Card surfaces |
+| `ink-800` | `#1c2029` | `#f7f8fb` | Raised surfaces, inputs |
+| `ink-700` | `#3a4150` | `#dde1eb` | Borders, dividers |
+| `ink-600` | `#5a6478` | `#b0b9c8` | Muted labels, placeholder |
 | `ink-500` | `#828da3` | `#828da3` | Secondary text |
 | `ink-400` | `#8b95a8` | `#67707f` | Icon color |
 | `ink-300` | `#9ba5b8` | `#5a6373` | Body text |
@@ -37,120 +38,148 @@ The `ink` ramp is a custom neutral scale that inverts between themes. In dark mo
 
 ### Semantic Accent Ramps
 
-Standard Tailwind ramps used at fixed opacities for semantic meaning:
+Standard Tailwind ramps at specific opacities for semantic meaning:
 
-| Ramp | Use Case |
-|------|----------|
-| `sky-*` | Primary accent, interactive elements, sky boards |
-| `teal-*` | Secondary accent, "learning" status, teal boards |
-| `emerald-*` | Success, "completed" status, mastered topics |
-| `amber-*` | Warning, "review" status, notifications |
-| `rose-*` | Destructive actions, "hard" difficulty, error states |
+| Ramp | Semantic role |
+|------|--------------|
+| `sky` | Primary accent, interactive elements, sky-colored boards |
+| `teal` | Learning status, teal-colored boards |
+| `emerald` | Completed status, success states, emerald-colored boards |
+| `amber` | Review status, warnings, amber-colored boards |
+| `rose` | Hard difficulty, destructive actions, rose-colored boards |
 
-### `text-white` Override
+### Special Tokens
 
-The `textColor.white` Tailwind alias resolves to `var(--text-strong)` — which is `#ffffff` in dark mode and `#0d1220` in light mode. This means `text-white` is the correct class for "high-contrast heading" rather than forcing literal white in both themes.
-
-Use `text-always-white` (a utility class) when you genuinely need `#ffffff` regardless of theme (e.g. text on a colored background like avatar initials or the logo icon).
+| Token | Use |
+|-------|-----|
+| `text-white` | Resolves to `var(--text-strong)` — correct heading color in both themes |
+| `text-always-white` | Literal `#ffffff` regardless of theme — for text on colored backgrounds |
 
 ---
 
 ## Typography
 
-| Element | Class | Weight | Size |
-|---------|-------|--------|------|
+| Role | Classes | Weight | Size |
+|------|---------|--------|------|
 | Page title | `text-3xl font-bold tracking-tight text-white` | 700 | 30px |
 | Section heading | `text-sm font-semibold text-white` | 600 | 14px |
-| Body / labels | `text-sm text-ink-300` | 400 | 14px |
+| Body | `text-sm text-ink-300` | 400 | 14px |
 | Secondary label | `text-xs text-ink-500` | 400 | 12px |
-| Meta / caption | `text-[10px] text-ink-600` | 400–600 | 10px |
-| Monospace (IDs, dates) | `font-mono tabular-nums` | — | inherited |
+| Caption / meta | `text-[10px] text-ink-600` | 400–600 | 10px |
+| Monospace | `font-mono tabular-nums` | — | inherited |
 
-**Font:** Inter (via Google Fonts) with `font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11'` for slightly more refined numerals and punctuation.
-
----
-
-## Spacing Scale
-
-Standard Tailwind 4px base unit. Common patterns:
-
-- Page padding: `px-8 py-8`
-- Section gap: `mt-6` / `mt-8`
-- Card padding: `p-5`
-- Form field gap: `space-y-4`
-- Tight list rows: `space-y-1` / `py-2.5`
+**Font:** Inter (Google Fonts) with `font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11'`.
 
 ---
 
 ## Surface Classes
 
-Defined in `index.css` `@layer components`:
+Defined in `index.css @layer components`. Use these instead of rewriting the same border + background pattern.
 
-```css
-.surface        { background-color: var(--surface-bg); border: 1px solid var(--hairline); }
-.surface-raised { background-color: var(--surface-raised-bg); border: 1px solid var(--hairline-strong); }
-.glass          { background-color: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid var(--hairline); }
-.glass-strong   { background-color: var(--glass-strong-bg); backdrop-filter: blur(16px); border: 1px solid var(--hairline-strong); }
-```
-
-| Class | Use |
-|-------|-----|
-| `.surface` | Cards, panels |
-| `.surface-raised` | Dropdowns, popovers |
-| `.glass` | Sidebar |
-| `.glass-strong` | Header |
+| Class | Description | Use |
+|-------|-------------|-----|
+| `.surface` | Card background + hairline border | Cards, panels |
+| `.glass` | Blurred background + border | Sidebar |
+| `.glass-strong` | Stronger blur + border | Header bar |
+| `.overlay` | Semi-transparent backdrop + blur | Modal backgrounds |
 
 ---
 
 ## Button Variants
 
-```css
-.btn-primary  /* Sky accent, with glow shadow */
-.btn-ghost    /* Transparent, ink text, subtle hover */
-.btn-soft     /* Low-opacity white/black background */
-```
+| Class | Description | Use |
+|-------|-------------|-----|
+| `.btn-primary` | Sky accent fill with glow shadow | Primary CTA |
+| `.btn-ghost` | Transparent, ink text, subtle hover | Navigation, secondary actions |
+| `.btn-soft` | Low-opacity neutral background | Cancel, tertiary |
 
-Usage patterns:
+All buttons include `active:scale-[0.98]` for tactile press feedback.
 
-```jsx
+```tsx
 // Primary action
 <button className="btn-primary">
   <Plus className="h-4 w-4" /> New topic
 </button>
 
-// Secondary / navigation
+// Secondary
 <button className="btn-ghost text-xs">
   View all <ChevronRight className="h-3.5 w-3.5" />
 </button>
 
-// Tertiary / cancel
+// Cancel
 <button className="btn-soft">Cancel</button>
 ```
 
-All buttons include `active:scale-[0.98]` for tactile feedback.
-
 ---
 
-## Chip (Badge/Tag)
+## Chip (Badge / Tag)
 
-```css
-.chip { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium; }
-```
+`.chip` provides the base shape. Always combine with semantic color classes:
 
-Always combined with semantic color classes:
-
-```jsx
+```tsx
 // Status badge
 <span className={`chip ${statusConfig[status].bg} ${statusConfig[status].text} border ${statusConfig[status].border}`}>
   <span className={`h-1.5 w-1.5 rounded-full ${statusConfig[status].dot}`} />
   {statusConfig[status].label}
 </span>
 
-// Simple tag
+// Topic tag
 <span className="chip bg-ink-700/40 text-ink-300 border border-ink-600/40">
-  TypeScript
+  typescript
 </span>
 ```
+
+---
+
+## Status System
+
+Each status has a consistent color set accessed via `statusConfig` from `src/config/index.ts`:
+
+```typescript
+statusConfig[status] → { label, bg, text, border, dot }
+```
+
+| Status | Color | Label | Dot class |
+|--------|-------|-------|-----------|
+| `to_learn` | Neutral ink | To Learn | `bg-ink-400` |
+| `learning` | Teal | Learning | `bg-teal-400` |
+| `practice` | Sky | Practice | `bg-sky-400` |
+| `review` | Amber | Review | `bg-amber-400` |
+| `completed` | Emerald | Completed | `bg-emerald-400` |
+
+---
+
+## Board Color System
+
+Each board has a color that controls its accent across the entire UI. Accessed via `boardColorMap` from `src/config/index.ts`:
+
+```typescript
+boardColorMap[board.color] → { bg, text, border, gradient, ring }
+```
+
+| Color | Value |
+|-------|-------|
+| `sky` | Blue — frontend, web |
+| `teal` | Teal — data, APIs |
+| `amber` | Amber — algorithms, CS |
+| `rose` | Rose — systems, infra |
+| `emerald` | Emerald — completed domains |
+
+---
+
+## Board Icons
+
+Five icons map to technology domains. Accessed via `BOARD_ICONS` from `src/config/index.ts`:
+
+| Name | Icon | Domain |
+|------|------|--------|
+| `Layout` | `<Layout>` | Frontend, UI |
+| `Network` | `<Network>` | Networking, APIs |
+| `Binary` | `<Binary>` | Algorithms, CS theory |
+| `Server` | `<Server>` | Backend, infrastructure |
+| `Cloud` | `<Cloud>` | Cloud, DevOps |
+
+Never import these icons directly in components — always access through `BOARD_ICONS[board.icon]`.
 
 ---
 
@@ -158,80 +187,54 @@ Always combined with semantic color classes:
 
 | Token | CSS | Use |
 |-------|-----|-----|
-| `shadow-glow` | `0 0 20px rgba(56,189,248,0.25)` | Logo icon, focused primary elements |
-| `shadow-card` | `0 2px 8px rgba(0,0,0,0.3) + ring` | Default card shadow |
-| `shadow-lift` | `0 12px 32px rgba(0,0,0,0.5) + ring` | Elevated/hovered cards, drawers |
-
----
-
-## Overlay / Modal Backdrop
-
-```css
-.overlay {
-  background-color: var(--overlay-bg);
-  backdrop-filter: blur(4px);
-}
-```
-
-Dark: semi-transparent black. Light: semi-transparent white. Always used as a fixed inset behind drawers and modals.
+| `shadow-glow` | `0 0 20px rgba(56,189,248,0.25)` | Logo, focused primary elements |
+| `shadow-card` | `0 2px 8px rgba(0,0,0,0.3) + ring` | Default card elevation |
+| `shadow-lift` | `0 12px 32px rgba(0,0,0,0.5) + ring` | Hovered cards, drawers, modals |
 
 ---
 
 ## Animations
 
-Defined in `tailwind.config.js`:
+Defined in `tailwind.config.js`. All use `@keyframes` defined in `index.css`.
 
-| Class | Effect | Use |
-|-------|--------|-----|
-| `animate-fade-in` | Opacity 0→1, 250ms | Modal overlays |
-| `animate-fade-up` | Opacity + translateY 8px→0, 350ms | Page sections |
-| `animate-scale-in` | Opacity + scale 0.96→1, 200ms | Modal dialogs |
-| `animate-slide-in-right` | Opacity + translateX 24px→0, 300ms | Topic drawer |
+| Class | Effect | Duration | Use |
+|-------|--------|----------|-----|
+| `animate-fade-in` | opacity 0→1 | 250ms | Overlays, page transitions |
+| `animate-fade-up` | opacity + translateY 8px→0 | 350ms | Dashboard sections |
+| `animate-scale-in` | opacity + scale 0.96→1 | 200ms | Modals, dialogs |
+| `animate-slide-in-right` | opacity + translateX 24px→0 | 300ms | TopicDrawer |
 
-Staggered entrance for dashboard sections uses `animate-delay-100/200/300/400`.
+Delay utilities: `animate-delay-100` through `animate-delay-400` for staggered entrances.
 
 ---
 
 ## Icon Usage
 
-All icons are from `lucide-react`. Standard sizes:
+All icons from `lucide-react`. Standard sizes:
 
-- `h-4 w-4` — inline icons in buttons, labels
-- `h-5 w-5` — card header icons
-- `h-8 w-8` — empty-state icons
-- `strokeWidth={2}` — default
-- `strokeWidth={2.2}` — logo icon (slightly heavier for brand feel)
-
----
-
-## Board Icons
-
-Five icons represent different technology domains:
-
-| Icon | Name | Use Case |
-|------|------|----------|
-| `Layout` | Layout | Frontend, UI |
-| `Network` | Network | Networking, APIs |
-| `Binary` | Binary | Algorithms, CS theory |
-| `Server` | Server | Backend, Infrastructure |
-| `Cloud` | Cloud | Cloud, DevOps |
-
-These are always accessed through the `boardIcons` map rather than hardcoded icon names.
+| Context | Size | strokeWidth |
+|---------|------|------------|
+| Inline in buttons, labels | `h-4 w-4` | 2 |
+| Card header icons | `h-5 w-5` | 2 |
+| Empty-state illustrations | `h-8 w-8` | 2 |
+| Logo/brand icon | `h-5 w-5` | 2.2 |
 
 ---
 
-## Status Color System
+## Spacing
 
-Each status has a consistent set of color values used across the app:
+Standard Tailwind 4px base unit. Common patterns:
 
-```typescript
-statusConfig[status] → { label, bg, text, border, dot }
-```
+| Pattern | Value |
+|---------|-------|
+| Page padding | `px-8 py-8` |
+| Section gap | `mt-6` / `mt-8` |
+| Card padding | `p-5` |
+| Form field gap | `space-y-4` |
+| List rows | `space-y-1` / `py-2.5` |
 
-| Status | Color | Label |
-|--------|-------|-------|
-| `to_learn` | ink (neutral) | To Learn |
-| `learning` | teal | Learning |
-| `practice` | sky | Practice |
-| `review` | amber | Review |
-| `completed` | emerald | Completed |
+---
+
+## Design System Reference Page
+
+The `DesignSystem.tsx` component renders a live preview of all tokens and components. It is accessible in development at the app URL — it is not linked from the sidebar navigation in production.
