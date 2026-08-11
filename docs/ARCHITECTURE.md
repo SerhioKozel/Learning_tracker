@@ -233,15 +233,23 @@ CREATE TABLE topics (
 
 ## View Routing
 
-```typescript
-type View = 'dashboard' | 'boards' | 'board' | 'stats' | 'calendar' | 'settings';
+React Router v6 (`react-router-dom`) with `BrowserRouter` mounted in `main.tsx`.
+
+```
+/              → Dashboard
+/boards        → BoardsList
+/boards/:id    → BoardView
+/stats         → Statistics
+/calendar      → CalendarView
+/settings      → SettingsView
+*              → redirect to /
 ```
 
-Managed as `useState<View>` in `App.tsx`. No URL router in v1.
+**Topic drawer** renders as an overlay on top of any route. The active topic is stored as a `?topic=<id>` query parameter — this means drawer state survives navigation and is deep-linkable (e.g. `/boards/abc123?topic=xyz789`).
 
-**Known limitation:** Browser back/forward exits the app rather than returning to the previous view. Deep linking to a specific board or topic is not possible.
+**Sidebar** uses `<NavLink>` — active state is derived from the URL, not from component state.
 
-**Migration path to React Router v6:** Each `View` maps 1:1 to a route path. The component tree does not need to change — only `App.tsx` routing logic and `Sidebar.tsx` nav links. Tracked in [BACKLOG.md](./BACKLOG.md#bl-005).
+**Browser back/forward** works correctly across all routes. Previously this was a known limitation (DL-003).
 
 ---
 
@@ -257,8 +265,7 @@ RLS is enabled on both tables. Policies use `USING (true)` — any holder of the
 
 | # | Limitation | Tracked In |
 |---|-----------|-----------|
-| 1 | No URL routing — back button exits the app | BL-005 |
-| 2 | Full `fetchAll()` on structural mutations — degrades at scale | BL-010 (Realtime) |
-| 3 | No offline support — requires network | BL-012 |
-| 4 | No authentication — anon key access only | BL-011 |
-| 5 | `history` array grows unbounded per topic | BL-001 |
+| 1 | Full `fetchAll()` on structural mutations — degrades at scale | BL-010 (Realtime) |
+| 2 | No offline support — requires network | BL-012 |
+| 3 | No authentication — anon key access only | BL-011 |
+| 4 | `history` array capped at 50 entries (older entries discarded) | BL-001 ✅ |

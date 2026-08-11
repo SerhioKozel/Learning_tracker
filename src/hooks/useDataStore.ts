@@ -230,12 +230,44 @@ export function useDataStore() {
     if (data.checklist !== undefined) updates.checklist = data.checklist;
     if (data.resources !== undefined) updates.resources = data.resources;
     if (data.notes !== undefined) updates.notes = data.notes;
-    if (data.history !== undefined) updates.history = data.history;
+    // Cap history at 50 entries to prevent unbounded JSONB growth (BL-001)
+    if (data.history !== undefined) updates.history = data.history.slice(-50);
 
     const { error: err } = await supabase.from('topics').update(updates).eq('id', id);
     if (err) { setError(err?.message ?? 'Failed to update topic'); return; }
     await fetchAll();
   }, [fetchAll]);
+
+  const duplicateTopic = useCallback(async (id: string): Promise<Topic | null> => {
+    const topic = topics.find((t) => t.id === id);
+    if (!topic) return null;
+    const now = new Date().toISOString();
+    const history: HistoryEntry[] = [{ id: generateId('h'), action: 'created', detail: 'Duplicated from topic', date: now }];
+    const { data: row, error: err } = await supabase
+      .from('topics')
+      .insert({
+        title: `${topic.title} (copy)`,
+        description: topic.description,
+        status: 'to_learn',
+        board_id: topic.boardId,
+        type: topic.type,
+        difficulty: topic.difficulty,
+        progress: 0,
+        tags: topic.tags,
+        review_date: null,
+        checklist: topic.checklist.map((c) => ({ ...c, done: false })),
+        resources: topic.resources.map((r) => ({ ...r, done: false })),
+        notes: topic.notes,
+        history,
+        created_at: now,
+        updated_at: now,
+      })
+      .select('*')
+      .maybeSingle();
+    if (err || !row) { setError(err?.message ?? 'Failed to duplicate topic'); return null; }
+    await fetchAll();
+    return mapTopic(row as RawTopic);
+  }, [topics, fetchAll]);
 
   const deleteTopic = useCallback(async (id: string): Promise<void> => {
     const { error: err } = await supabase.from('topics').delete().eq('id', id);
@@ -352,7 +384,7 @@ export function useDataStore() {
   return {
     boards, topics, loading, error, refresh: fetchAll,
     createBoard, updateBoard, deleteBoard, duplicateBoard,
-    createTopic, updateTopic, deleteTopic,
+    createTopic, updateTopic, duplicateTopic, deleteTopic,
     addChecklistItem, deleteChecklistItem,
     addResource, deleteResource,
     exportData, importData, resetData,

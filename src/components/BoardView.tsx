@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Plus, Clock, CheckSquare, Link2, ChevronLeft,
-  Search, Trash2, X, Layout,
+  Search, Trash2, X, Layout, Filter,
 } from 'lucide-react';
 import { statusConfig, boardColorMap, topicTypeConfig, difficultyConfig, BOARD_ICONS } from '../config';
 import ConfirmDialog from './ui/ConfirmDialog';
-import type { Status, Topic, Board } from '../types';
+import type { Status, Difficulty, TopicType, Topic, Board } from '../types';
 
 interface BoardViewProps {
   boardId: string | null;
@@ -105,9 +105,21 @@ export default function BoardView({
   boardId, boards, topics, onSelectTopic, onBack, onCreateTopic, onDeleteTopic,
 }: BoardViewProps) {
   const [query, setQuery] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterDifficulty, setFilterDifficulty] = useState<Difficulty | null>(null);
+  const [filterType, setFilterType] = useState<TopicType | null>(null);
   const [newTopicCol, setNewTopicCol] = useState<Status | null>(null);
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
 
   const board = boards.find((b) => b.id === boardId) ?? boards[0];
   if (!board) {
@@ -122,11 +134,15 @@ export default function BoardView({
   const c = boardColorMap[board.color] ?? boardColorMap.sky;
   const Icon = BOARD_ICONS[board.icon] ?? Layout;
   const boardTopics = topics.filter((t) => t.boardId === board.id);
-  const filteredTopics = boardTopics.filter(
-    (t) => !query
-      || t.title.toLowerCase().includes(query.toLowerCase())
-      || t.tags.some((tag) => tag.toLowerCase().includes(query.toLowerCase())),
-  );
+  const filteredTopics = boardTopics.filter((t) => {
+    if (query && !t.title.toLowerCase().includes(query.toLowerCase())
+      && !t.tags.some((tag) => tag.toLowerCase().includes(query.toLowerCase()))) return false;
+    if (filterDifficulty && t.difficulty !== filterDifficulty) return false;
+    if (filterType && t.type !== filterType) return false;
+    return true;
+  });
+
+  const activeFilterCount = (filterDifficulty ? 1 : 0) + (filterType ? 1 : 0);
   const pct = board.topicCount > 0 ? Math.round((board.completedCount / board.topicCount) * 100) : 0;
   const topicToDelete = topics.find((t) => t.id === confirmDeleteId);
 
@@ -165,14 +181,91 @@ export default function BoardView({
               </div>
             </div>
           </div>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-600" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search topics…"
-              className="w-48 rounded-lg border border-white/[0.06] bg-ink-800/60 py-2 pl-8 pr-3 text-xs text-ink-100 placeholder:text-ink-600 transition-colors focus:border-sky-500/40 focus:outline-none focus:ring-1 focus:ring-sky-500/30"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-600" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search topics…"
+                className="w-44 rounded-lg border border-white/[0.06] bg-ink-800/60 py-2 pl-8 pr-3 text-xs text-ink-100 placeholder:text-ink-600 transition-colors focus:border-sky-500/40 focus:outline-none focus:ring-1 focus:ring-sky-500/30"
+              />
+            </div>
+            <div ref={filterRef} className="relative">
+              <button
+                onClick={() => setFilterOpen((o) => !o)}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                  activeFilterCount > 0
+                    ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
+                    : 'border-white/[0.06] bg-ink-800/60 text-ink-400 hover:text-ink-100'
+                }`}
+              >
+                <Filter className="h-3.5 w-3.5" />
+                Filter
+                {activeFilterCount > 0 && (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[10px] text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              {filterOpen && (
+                <div className="absolute right-0 top-full z-20 mt-1 w-52 animate-scale-in rounded-xl border border-white/[0.08] bg-ink-700 p-3 shadow-lift">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Filters</span>
+                    {activeFilterCount > 0 && (
+                      <button
+                        onClick={() => { setFilterDifficulty(null); setFilterType(null); }}
+                        className="text-[10px] text-sky-400 hover:text-sky-300"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="mb-1.5 text-[10px] font-medium text-ink-500">Difficulty</div>
+                      <div className="flex gap-1">
+                        {(['easy', 'medium', 'hard'] as Difficulty[]).map((d) => {
+                          const cfg = difficultyConfig[d];
+                          return (
+                            <button
+                              key={d}
+                              onClick={() => setFilterDifficulty(filterDifficulty === d ? null : d)}
+                              className={`flex-1 rounded-md py-1 text-[10px] font-medium transition-colors ${
+                                filterDifficulty === d ? `${cfg.bg} ${cfg.text}` : 'bg-ink-800 text-ink-400 hover:text-ink-100'
+                              }`}
+                            >
+                              {cfg.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-1.5 text-[10px] font-medium text-ink-500">Type</div>
+                      <div className="grid grid-cols-2 gap-1">
+                        {(Object.keys(topicTypeConfig) as TopicType[]).map((type) => {
+                          const cfg = topicTypeConfig[type];
+                          return (
+                            <button
+                              key={type}
+                              onClick={() => setFilterType(filterType === type ? null : type)}
+                              className={`rounded-md px-2 py-1 text-left text-[10px] transition-colors ${
+                                filterType === type
+                                  ? 'bg-sky-500/15 text-sky-300'
+                                  : 'text-ink-400 hover:bg-ink-800 hover:text-ink-100'
+                              }`}
+                            >
+                              {cfg.emoji} {cfg.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

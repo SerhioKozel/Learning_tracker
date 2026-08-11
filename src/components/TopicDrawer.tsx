@@ -3,7 +3,7 @@ import {
   X, CheckSquare, Square, Link2, Calendar, Tag, StickyNote,
   ExternalLink, PlayCircle, FileText, BookOpen, BookMarked,
   Github, Plus, History, ArrowRightLeft, TrendingUp, Edit3,
-  ChevronDown, Trash2,
+  ChevronDown, Trash2, Copy,
 } from 'lucide-react';
 import {
   statusConfig, boardColorMap, topicTypeConfig, difficultyConfig,
@@ -26,6 +26,7 @@ interface TopicDrawerProps {
   onDeleteChecklistItem: (topicId: string, itemId: string) => Promise<void>;
   onAddResource: (topicId: string, data: { title: string; type: Resource['type']; url: string }) => Promise<void>;
   onDeleteResource: (topicId: string, resourceId: string) => Promise<void>;
+  onDuplicateTopic: (id: string) => Promise<Topic | null>;
   onDeleteTopic: (id: string) => Promise<void>;
 }
 
@@ -41,30 +42,36 @@ export default function TopicDrawer({
   topic, boards, onClose, onUpdate,
   onAddChecklistItem, onDeleteChecklistItem,
   onAddResource, onDeleteResource,
-  onDeleteTopic,
+  onDuplicateTopic, onDeleteTopic,
 }: TopicDrawerProps) {
   // Local state only for fields that need controlled input before saving:
   // - notes: saved on blur to avoid per-keystroke writes
   // - newTag input: pure UI, not persisted until submitted
   // All other fields (status, type, difficulty, etc.) read directly from topic prop
   // and write through immediately on change — no local mirror needed.
+  const [title, setTitle] = useState(topic?.title ?? '');
+  const [editingTitle, setEditingTitle] = useState(false);
   const [notes, setNotes] = useState(topic?.notes ?? '');
+  const [description, setDescription] = useState(topic?.description ?? '');
   const [newChecklistText, setNewChecklistText] = useState('');
   const [newResource, setNewResource] = useState({ title: '', type: 'url' as Resource['type'], url: '' });
   const [newTag, setNewTag] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Sync notes when a different topic is opened
+  // Sync local text fields when a different topic is opened
   const prevTopicId = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (topic?.id !== prevTopicId.current) {
+      setTitle(topic?.title ?? '');
+      setEditingTitle(false);
       setNotes(topic?.notes ?? '');
+      setDescription(topic?.description ?? '');
       setNewChecklistText('');
       setNewResource({ title: '', type: 'url', url: '' });
       setNewTag('');
       prevTopicId.current = topic?.id;
     }
-  }, [topic?.id, topic?.notes]);
+  }, [topic?.id, topic?.title, topic?.notes, topic?.description]);
 
   if (!topic) return null;
 
@@ -129,6 +136,22 @@ export default function TopicDrawer({
     onUpdate(topic.id, { tags: topic.tags.filter((t) => t !== tag) });
   };
 
+  const handleTitleBlur = () => {
+    setEditingTitle(false);
+    const trimmed = title.trim();
+    if (trimmed && trimmed !== topic.title) {
+      onUpdate(topic.id, { title: trimmed });
+    } else {
+      setTitle(topic.title); // reset if empty or unchanged
+    }
+  };
+
+  const handleDescriptionBlur = () => {
+    if (description !== topic.description) {
+      onUpdate(topic.id, { description });
+    }
+  };
+
   const handleNotesBlur = () => {
     if (notes !== topic.notes) {
       onUpdate(topic.id, { notes });
@@ -165,6 +188,13 @@ export default function TopicDrawer({
             </div>
             <div className="flex items-center gap-1">
               <button
+                onClick={() => onDuplicateTopic(topic.id).then(onClose)}
+                className="rounded-md p-1.5 text-ink-500 transition-colors hover:bg-white/[0.06] hover:text-ink-100"
+                title="Duplicate topic"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+              <button
                 onClick={() => setConfirmDelete(true)}
                 className="rounded-md p-1.5 text-ink-500 transition-colors hover:bg-rose-500/15 hover:text-rose-300"
                 title="Delete topic"
@@ -180,12 +210,38 @@ export default function TopicDrawer({
             </div>
           </div>
 
-          <h2 className="mt-4 text-xl font-bold leading-tight tracking-tight text-always-white text-balance">
-            {topic.title}
-          </h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-ink-400">
-            {topic.description || 'No description yet'}
-          </p>
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={handleTitleBlur}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.currentTarget.blur(); }
+                if (e.key === 'Escape') { setTitle(topic.title); setEditingTitle(false); }
+              }}
+              className="mt-4 w-full bg-transparent text-xl font-bold leading-tight tracking-tight text-always-white focus:outline-none"
+            />
+          ) : (
+            <h2
+              className="group mt-4 cursor-text text-xl font-bold leading-tight tracking-tight text-always-white text-balance"
+              onClick={() => setEditingTitle(true)}
+              title="Click to edit title"
+            >
+              {topic.title}
+              <span className="ml-2 inline-block opacity-0 text-sm font-normal text-ink-600 transition-opacity group-hover:opacity-100">
+                ✎
+              </span>
+            </h2>
+          )}
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleDescriptionBlur}
+            placeholder="Add a description…"
+            rows={2}
+            className="mt-1.5 w-full resize-none bg-transparent text-sm leading-relaxed text-ink-400 placeholder:text-ink-600 focus:text-ink-100 focus:outline-none"
+          />
 
           {/* Status selector */}
           <div className="mt-4 flex flex-wrap items-center gap-1.5">

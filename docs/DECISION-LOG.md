@@ -146,3 +146,23 @@ New decisions are added here when they are made, not retroactively.
 - `src/utils/` — pure functions (date, analytics, id)
 
 All 9 component files that imported from `mockData.ts` were updated. The file was deleted.
+
+---
+
+## DL-010 — React Router v6 для URL-навигации
+
+**Date:** 2026-08 | **Status:** Accepted
+
+**Context:** Приложение использовало `useState<View>` для навигации между экранами. Кнопка Back в браузере выходила из приложения, deep linking был невозможен.
+
+**Decision:** `react-router-dom` v6 с `BrowserRouter`. Маршруты: `/`, `/boards`, `/boards/:boardId`, `/stats`, `/calendar`, `/settings`. Topic drawer — query param `?topic=<id>` поверх любого маршрута.
+
+**Trade-offs:**
+- ✅ Browser back/forward работает корректно
+- ✅ Deep linking — можно поделиться ссылкой на конкретную доску или топик
+- ✅ Sidebar использует `<NavLink>` — active state из URL, не из state
+- ✅ `View` type и `onView` callback полностью удалены — меньше prop drilling
+- ❌ +18KB к бандлу (react-router-dom gzip)
+- ❌ Требует настройки сервера для SPA fallback при деплое (все пути → index.html)
+
+**Паттерн с query param для drawer:** `?topic=<id>` вместо вложенного маршрута. Это позволяет открывать drawer поверх любого маршрута и сохранять его состояние при навигации. Альтернатива — `/boards/:boardId/topics/:topicId` — создала бы сложный вложенный layout.

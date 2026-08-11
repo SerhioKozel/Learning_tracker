@@ -4,18 +4,18 @@ import {
 } from 'lucide-react';
 import { boardColorMap, statusConfig, topicTypeConfig, HEATMAP_COLORS, BOARD_ICONS } from '../config';
 import { generateHeatmap, generateWeeklyActivity, computeStreak } from '../utils/analytics';
-import type { View } from './Sidebar';
+
 import type { Board, Topic } from '../types';
 
 interface DashboardProps {
   boards: Board[];
   topics: Topic[];
-  onView: (v: View) => void;
+  onNavigate: (path: string) => void;
   onSelectBoard: (id: string) => void;
   onSelectTopic: (id: string) => void;
 }
 
-export default function Dashboard({ boards, topics, onView, onSelectBoard, onSelectTopic }: DashboardProps) {
+export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, onSelectTopic }: DashboardProps) {
   const totalTopics = topics.length;
   const completed = topics.filter((t) => t.status === 'completed').length;
   const inProgress = topics.filter((t) => t.status === 'learning' || t.status === 'practice').length;
@@ -42,18 +42,54 @@ export default function Dashboard({ boards, topics, onView, onSelectBoard, onSel
     (Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000),
   );
 
+  if (boards.length === 0) {
+    return (
+      <div className="mx-auto max-w-2xl px-8 py-24">
+        <div className="text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/15 ring-1 ring-sky-500/20">
+            <Layers className="h-8 w-8 text-sky-300" />
+          </div>
+          <h1 className="mt-6 text-2xl font-bold text-white">Welcome to Learning Tracker</h1>
+          <p className="mt-2 text-sm text-ink-500">
+            Organise everything you want to learn into boards, track your progress, and never lose a resource again.
+          </p>
+        </div>
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[
+            { step: '1', title: 'Create a board', description: 'Group topics by subject — e.g. "Frontend", "Algorithms", "System Design".', action: () => onNavigate('/boards'), label: 'Create board' },
+            { step: '2', title: 'Add topics', description: 'Each topic is a card that moves through five stages: To Learn → Completed.' },
+            { step: '3', title: 'Track & review', description: 'Set review dates, log resources, write notes, and watch your progress grow.' },
+          ].map((item) => (
+            <div key={item.step} className="surface rounded-2xl p-5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/15 text-sm font-bold text-sky-300">
+                {item.step}
+              </div>
+              <h3 className="mt-3 text-sm font-semibold text-white">{item.title}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-ink-500">{item.description}</p>
+              {item.action && (
+                <button onClick={item.action} className="btn-primary mt-4 w-full justify-center">
+                  <Plus className="h-4 w-4" /> {item.label}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (totalTopics === 0) {
     return (
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-center px-8 py-24 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/15 ring-1 ring-sky-500/20">
           <Layers className="h-8 w-8 text-sky-300" />
         </div>
-        <h1 className="mt-6 text-2xl font-bold text-white">Welcome to Learning Tracker</h1>
+        <h1 className="mt-6 text-2xl font-bold text-white">Your boards are ready</h1>
         <p className="mt-2 max-w-md text-sm text-ink-500">
-          You don't have any topics yet. Create your first board and start tracking your learning journey.
+          You have {boards.length} board{boards.length !== 1 ? 's' : ''} set up. Now add your first topic to start tracking.
         </p>
-        <button onClick={() => onView('boards')} className="btn-primary mt-6">
-          <Plus className="h-4 w-4" /> Go to boards
+        <button onClick={() => onNavigate('/boards')} className="btn-primary mt-6">
+          <Plus className="h-4 w-4" /> Open boards
         </button>
       </div>
     );
@@ -175,7 +211,7 @@ export default function Dashboard({ boards, topics, onView, onSelectBoard, onSel
         <div className="surface animate-fade-up animate-delay-200 rounded-2xl p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white">Recent boards</h2>
-            <button onClick={() => onView('boards')} className="btn-ghost text-xs">
+            <button onClick={() => onNavigate('/boards')} className="btn-ghost text-xs">
               View all <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -216,7 +252,7 @@ export default function Dashboard({ boards, topics, onView, onSelectBoard, onSel
             <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
               <Calendar className="h-4 w-4 text-amber-300" /> Upcoming reviews
             </h2>
-            <button onClick={() => onView('calendar')} className="btn-ghost text-xs">
+            <button onClick={() => onNavigate('/calendar')} className="btn-ghost text-xs">
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>

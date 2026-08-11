@@ -1,41 +1,76 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { Search, Command, Plus, Moon, Sun, X } from 'lucide-react';
-import Sidebar, { type View } from './components/Sidebar';
+import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import BoardsList from './components/BoardsList';
 import BoardView from './components/BoardView';
-import Statistics from './components/Statistics';
-import CalendarView from './components/CalendarView';
-import SettingsView from './components/SettingsView';
 import TopicDrawer from './components/TopicDrawer';
 import { useDataStore } from './hooks/useDataStore';
 import type { Topic } from './types';
 
+const Statistics   = lazy(() => import('./components/Statistics'));
+const CalendarView = lazy(() => import('./components/CalendarView'));
+const SettingsView = lazy(() => import('./components/SettingsView'));
+
 export type Theme = 'dark' | 'light';
+
+function ViewSpinner() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-ink-700 border-t-sky-400" />
+    </div>
+  );
+}
+
+// BoardView wrapper — reads boardId from URL params
+function BoardViewRoute({
+  store,
+  onSelectTopic,
+}: {
+  store: ReturnType<typeof useDataStore>;
+  onSelectTopic: (id: string) => void;
+}) {
+  const { boardId } = useParams<{ boardId: string }>();
+  const navigate = useNavigate();
+  return (
+    <BoardView
+      boardId={boardId ?? null}
+      boards={store.boards}
+      topics={store.topics}
+      onSelectTopic={onSelectTopic}
+      onBack={() => navigate('/boards')}
+      onCreateTopic={store.createTopic}
+      onDeleteTopic={store.deleteTopic}
+    />
+  );
+}
 
 export default function App() {
   const store = useDataStore();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const [view, setView] = useState<View>('dashboard');
-  const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
-  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<Theme>(
-    () => (typeof document !== 'undefined' && document.documentElement.classList.contains('light'))
-      ? 'light'
-      : 'dark',
-  );
+  // ─── Topic drawer via query param ?topic=<id> ──────────────────────────────
+  const searchParams = new URLSearchParams(location.search);
+  const activeTopicId = searchParams.get('topic');
 
-  // Search palette
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const openTopic = useCallback((id: string) => {
+    const params = new URLSearchParams(location.search);
+    params.set('topic', id);
+    navigate({ search: params.toString() }, { replace: true });
+  }, [navigate, location.search]);
 
-  // New topic modal
-  const [newTopicOpen, setNewTopicOpen] = useState(false);
-  const [newTopicTitle, setNewTopicTitle] = useState('');
-  const [newTopicBoardId, setNewTopicBoardId] = useState<string>('');
+  const closeTopic = useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    params.delete('topic');
+    navigate({ search: params.toString() }, { replace: true });
+  }, [navigate, location.search]);
 
   // ─── Theme ─────────────────────────────────────────────────────────────────
+  const [theme, setTheme] = useState<Theme>(
+    () => document.documentElement.classList.contains('light') ? 'light' : 'dark',
+  );
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -47,13 +82,28 @@ export default function App() {
     });
   }, []);
 
-  // ─── Keyboard shortcuts ────────────────────────────────────────────────────
+  // ─── Search palette ────────────────────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // ─── New topic modal ───────────────────────────────────────────────────────
+  const [newTopicOpen, setNewTopicOpen] = useState(false);
+  const [newTopicTitle, setNewTopicTitle] = useState('');
+  const [newTopicBoardId, setNewTopicBoardId] = useState('');
+
+  useEffect(() => {
+    if (store.boards.length > 0 && !newTopicBoardId) {
+      setNewTopicBoardId(store.boards[0].id);
+    }
+  }, [store.boards, newTopicBoardId]);
+
+  // ─── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (searchOpen) { setSearchOpen(false); setSearchQuery(''); return; }
-        if (activeTopicId) { setActiveTopicId(null); return; }
+        if (activeTopicId) { closeTopic(); return; }
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -62,48 +112,26 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [searchOpen, activeTopicId]);
+  }, [searchOpen, activeTopicId, closeTopic]);
 
   useEffect(() => {
-    if (searchOpen && searchInputRef.current) searchInputRef.current.focus();
+    if (searchOpen) searchInputRef.current?.focus();
   }, [searchOpen]);
 
-  // Pre-select first board for new topic modal
-  useEffect(() => {
-    if (store.boards.length > 0 && !newTopicBoardId) {
-      setNewTopicBoardId(store.boards[0].id);
-    }
-  }, [store.boards, newTopicBoardId]);
+  // ─── Navigation helpers ────────────────────────────────────────────────────
+  const handleSelectBoard = useCallback((id: string) => {
+    navigate(`/boards/${id}`);
+  }, [navigate]);
 
-  // ─── Navigation ────────────────────────────────────────────────────────────
-
-  const handleView = (v: View) => {
-    if (v === 'board' && !activeBoardId && store.boards.length > 0) {
-      setActiveBoardId(store.boards[0].id);
-    }
-    setView(v);
-  };
-
-  const handleSelectBoard = (id: string) => {
-    setActiveBoardId(id);
-    setView('board');
-  };
-
-  // ─── New topic ─────────────────────────────────────────────────────────────
-
-  const handleCreateTopic = async () => {
+  const handleCreateTopic = useCallback(async () => {
     if (!newTopicTitle.trim() || !newTopicBoardId) return;
     const topic = await store.createTopic({ title: newTopicTitle.trim(), boardId: newTopicBoardId });
     setNewTopicOpen(false);
     setNewTopicTitle('');
-    if (topic) {
-      setActiveBoardId(newTopicBoardId);
-      setView('board');
-    }
-  };
+    if (topic) navigate(`/boards/${newTopicBoardId}`);
+  }, [newTopicTitle, newTopicBoardId, store, navigate]);
 
-  // ─── Search ────────────────────────────────────────────────────────────────
-
+  // ─── Search results ────────────────────────────────────────────────────────
   const searchResults: { topics: Topic[]; boards: typeof store.boards } = {
     topics: searchQuery
       ? store.topics
@@ -123,18 +151,12 @@ export default function App() {
   const closeSearch = () => { setSearchOpen(false); setSearchQuery(''); };
 
   // ─── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="flex h-screen overflow-hidden bg-ink-980">
       <div className="pointer-events-none fixed inset-0 bg-ink-900" />
 
       <Sidebar
-        view={view}
-        onView={handleView}
-        activeBoardId={activeBoardId}
-        onSelectBoard={handleSelectBoard}
         boards={store.boards}
-        topics={store.topics}
         loading={store.loading}
       />
 
@@ -143,7 +165,7 @@ export default function App() {
         <header className="glass-strong flex h-14 shrink-0 items-center justify-between px-6">
           <button
             onClick={() => setSearchOpen(true)}
-            className="relative w-80 rounded-lg border border-white/[0.06] bg-ink-800/60 py-2 pl-9 pr-16 text-left text-sm text-ink-500 transition-colors hover:border-white/[0.1] focus:border-sky-500/40 focus:outline-none focus:ring-1 focus:ring-sky-500/30"
+            className="relative w-80 rounded-lg border border-white/[0.06] bg-ink-800/60 py-2 pl-9 pr-16 text-left text-sm text-ink-500 transition-colors hover:border-white/[0.1]"
           >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
             <span>Search topics, boards, tags…</span>
@@ -186,17 +208,17 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div key={view} className="animate-fade-in">
-              {view === 'dashboard' && (
+            <Routes>
+              <Route path="/" element={
                 <Dashboard
                   boards={store.boards}
                   topics={store.topics}
-                  onView={handleView}
+                  onNavigate={(path) => navigate(path)}
                   onSelectBoard={handleSelectBoard}
-                  onSelectTopic={setActiveTopicId}
+                  onSelectTopic={openTopic}
                 />
-              )}
-              {view === 'boards' && (
+              } />
+              <Route path="/boards" element={
                 <BoardsList
                   boards={store.boards}
                   topics={store.topics}
@@ -206,47 +228,52 @@ export default function App() {
                   onDeleteBoard={store.deleteBoard}
                   onDuplicateBoard={store.duplicateBoard}
                 />
-              )}
-              {view === 'board' && (
-                <BoardView
-                  boardId={activeBoardId}
-                  boards={store.boards}
-                  topics={store.topics}
-                  onSelectTopic={setActiveTopicId}
-                  onBack={() => handleView('boards')}
-                  onCreateTopic={store.createTopic}
-                  onDeleteTopic={store.deleteTopic}
-                />
-              )}
-              {view === 'stats' && <Statistics boards={store.boards} topics={store.topics} />}
-              {view === 'calendar' && <CalendarView topics={store.topics} onSelectTopic={setActiveTopicId} />}
-              {view === 'settings' && (
-                <SettingsView
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  boards={store.boards}
-                  topics={store.topics}
-                  onExport={store.exportData}
-                  onImport={store.importData}
-                  onReset={store.resetData}
-                />
-              )}
-            </div>
+              } />
+              <Route path="/boards/:boardId" element={
+                <BoardViewRoute store={store} onSelectTopic={openTopic} />
+              } />
+              <Route path="/stats" element={
+                <Suspense fallback={<ViewSpinner />}>
+                  <Statistics boards={store.boards} topics={store.topics} />
+                </Suspense>
+              } />
+              <Route path="/calendar" element={
+                <Suspense fallback={<ViewSpinner />}>
+                  <CalendarView topics={store.topics} onSelectTopic={openTopic} />
+                </Suspense>
+              } />
+              <Route path="/settings" element={
+                <Suspense fallback={<ViewSpinner />}>
+                  <SettingsView
+                    theme={theme}
+                    onToggleTheme={toggleTheme}
+                    boards={store.boards}
+                    topics={store.topics}
+                    onExport={store.exportData}
+                    onImport={store.importData}
+                    onReset={store.resetData}
+                  />
+                </Suspense>
+              } />
+              {/* Catch-all → dashboard */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           )}
         </main>
       </div>
 
-      {/* Topic drawer */}
+      {/* Topic drawer — rendered over any route via ?topic= query param */}
       {activeTopicId && (
         <TopicDrawer
           topic={store.topics.find((t) => t.id === activeTopicId) ?? null}
           boards={store.boards}
-          onClose={() => setActiveTopicId(null)}
+          onClose={closeTopic}
           onUpdate={store.updateTopic}
           onAddChecklistItem={store.addChecklistItem}
           onDeleteChecklistItem={store.deleteChecklistItem}
           onAddResource={store.addResource}
           onDeleteResource={store.deleteResource}
+          onDuplicateTopic={store.duplicateTopic}
           onDeleteTopic={store.deleteTopic}
         />
       )}
@@ -284,9 +311,7 @@ export default function App() {
               )}
               {searchResults.boards.length > 0 && (
                 <div className="mb-2">
-                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-600">
-                    Boards
-                  </div>
+                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-600">Boards</div>
                   {searchResults.boards.map((b) => (
                     <button
                       key={b.id}
@@ -301,13 +326,11 @@ export default function App() {
               )}
               {searchResults.topics.length > 0 && (
                 <div>
-                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-600">
-                    Topics
-                  </div>
+                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-600">Topics</div>
                   {searchResults.topics.map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => { setActiveTopicId(t.id); closeSearch(); }}
+                      onClick={() => { openTopic(t.id); closeSearch(); }}
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/[0.06]"
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />

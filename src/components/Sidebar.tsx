@@ -1,36 +1,28 @@
 import { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, KanbanSquare, BarChart3,
   Calendar, Settings, GraduationCap, Search, Plus,
 } from 'lucide-react';
 import { boardColorMap } from '../config';
-import type { Board, Topic } from '../types';
-
-// The View type is exported here because Sidebar is the canonical list of views.
-export type View = 'dashboard' | 'boards' | 'board' | 'stats' | 'calendar' | 'settings';
+import type { Board } from '../types';
 
 interface SidebarProps {
-  view: View;
-  onView: (v: View) => void;
-  activeBoardId: string | null;
-  onSelectBoard: (id: string) => void;
   boards: Board[];
-  topics: Topic[];
   loading: boolean;
 }
 
-const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'boards',    label: 'Boards',    icon: KanbanSquare },
-  { id: 'stats',     label: 'Statistics', icon: BarChart3 },
-  { id: 'calendar',  label: 'Calendar',  icon: Calendar },
-  { id: 'settings',  label: 'Settings',  icon: Settings },
+const navItems = [
+  { to: '/',         label: 'Dashboard',  icon: LayoutDashboard, end: true },
+  { to: '/boards',   label: 'Boards',     icon: KanbanSquare,    end: false },
+  { to: '/stats',    label: 'Statistics', icon: BarChart3,       end: true },
+  { to: '/calendar', label: 'Calendar',   icon: Calendar,        end: true },
+  { to: '/settings', label: 'Settings',   icon: Settings,        end: true },
 ];
 
-export default function Sidebar({
-  view, onView, activeBoardId, onSelectBoard, boards, loading,
-}: SidebarProps) {
+export default function Sidebar({ boards, loading }: SidebarProps) {
   const [query, setQuery] = useState('');
+  const navigate = useNavigate();
 
   const filtered = boards.filter((b) =>
     b.title.toLowerCase().includes(query.toLowerCase()),
@@ -51,29 +43,35 @@ export default function Sidebar({
 
       {/* Nav */}
       <nav className="px-3 pb-2">
-        {navItems.map((item) => {
-          const active = view === item.id || (item.id === 'boards' && view === 'board');
-          return (
-            <button
-              key={item.id}
-              onClick={() => onView(item.id)}
-              className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                active
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              `group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                isActive
                   ? 'bg-white/[0.07] text-white'
                   : 'text-ink-400 hover:bg-white/[0.04] hover:text-ink-100'
-              }`}
-            >
-              {active && (
-                <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-sky-400" />
-              )}
-              <item.icon
-                className={`h-[18px] w-[18px] transition-colors ${active ? 'text-sky-400' : 'text-ink-500 group-hover:text-ink-200'}`}
-                strokeWidth={2}
-              />
-              {item.label}
-            </button>
-          );
-        })}
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-sky-400" />
+                )}
+                <item.icon
+                  className={`h-[18px] w-[18px] transition-colors ${
+                    isActive ? 'text-sky-400' : 'text-ink-500 group-hover:text-ink-200'
+                  }`}
+                  strokeWidth={2}
+                />
+                {item.label}
+              </>
+            )}
+          </NavLink>
+        ))}
       </nav>
 
       {/* Boards list */}
@@ -81,7 +79,7 @@ export default function Sidebar({
         <div className="flex items-center justify-between px-3 pb-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-ink-600">Boards</span>
           <button
-            onClick={() => onView('boards')}
+            onClick={() => navigate('/boards')}
             className="rounded-md p-1 text-ink-500 transition-colors hover:bg-white/[0.06] hover:text-ink-100"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -112,41 +110,46 @@ export default function Sidebar({
           ) : (
             filtered.map((b) => {
               const c = boardColorMap[b.color] ?? boardColorMap.sky;
-              const active = activeBoardId === b.id && view === 'board';
               const pct = b.topicCount > 0 ? Math.round((b.completedCount / b.topicCount) * 100) : 0;
               return (
-                <button
+                <NavLink
                   key={b.id}
-                  onClick={() => onSelectBoard(b.id)}
-                  className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-200 ${
-                    active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'
-                  }`}
+                  to={`/boards/${b.id}`}
+                  className={({ isActive }) =>
+                    `group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-200 ${
+                      isActive ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'
+                    }`
+                  }
                 >
-                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${c.bg} ${c.border} border`}>
-                    <span className={`h-2 w-2 rounded-full ${c.text.replace('text-', 'bg-')}`} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className={`truncate text-xs font-medium ${active ? 'text-white' : 'text-ink-200'}`}>
-                      {b.title}
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-ink-700">
-                        <div
-                          className={`h-full rounded-full ${c.text.replace('text-', 'bg-')}`}
-                          style={{ width: `${pct}%` }}
-                        />
+                  {({ isActive }) => (
+                    <>
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${c.bg} ${c.border} border`}>
+                        <span className={`h-2 w-2 rounded-full ${c.text.replace('text-', 'bg-')}`} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className={`truncate text-xs font-medium ${isActive ? 'text-white' : 'text-ink-200'}`}>
+                          {b.title}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <div className="h-1 flex-1 overflow-hidden rounded-full bg-ink-700">
+                            <div
+                              className={`h-full rounded-full ${c.text.replace('text-', 'bg-')}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="shrink-0 text-[10px] tabular-nums text-ink-600">{pct}%</span>
+                        </div>
                       </div>
-                      <span className="shrink-0 text-[10px] tabular-nums text-ink-600">{pct}%</span>
-                    </div>
-                  </div>
-                </button>
+                    </>
+                  )}
+                </NavLink>
               );
             })
           )}
         </div>
       </div>
 
-      {/* Footer — placeholder for future auth */}
+      {/* Footer */}
       <div className="border-t border-white/[0.06] p-3">
         <div className="flex items-center gap-3 rounded-lg px-3 py-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-600 text-xs font-bold text-always-white">
