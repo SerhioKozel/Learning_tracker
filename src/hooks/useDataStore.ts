@@ -128,7 +128,7 @@ export function useDataStore() {
   }): Promise<Board | null> => {
     const { data: row, error: err } = await supabase
       .from('boards')
-      .insert({ title: data.title, description: data.description, color: data.color, icon: data.icon })
+      .insert({ id: generateId('b'), title: data.title, description: data.description, color: data.color, icon: data.icon })
       .select('*')
       .maybeSingle();
 
@@ -164,7 +164,7 @@ export function useDataStore() {
 
     const { data: newBoard, error: boardErr } = await supabase
       .from('boards')
-      .insert({ title: `${board.title} (copy)`, description: board.description, color: board.color, icon: board.icon })
+      .insert({ id: generateId('b'), title: `${board.title} (copy)`, description: board.description, color: board.color, icon: board.icon })
       .select('*')
       .maybeSingle();
 
@@ -173,6 +173,7 @@ export function useDataStore() {
     const { data: boardTopics } = await supabase.from('topics').select('*').eq('board_id', id);
     if (boardTopics && boardTopics.length > 0) {
       const newTopics = boardTopics.map((t) => ({
+        id: generateId('t'),
         title: t.title, description: t.description, status: t.status,
         board_id: newBoard.id, type: t.type, difficulty: t.difficulty,
         progress: t.progress, tags: t.tags, review_date: t.review_date,
@@ -196,6 +197,7 @@ export function useDataStore() {
     const { data: row, error: err } = await supabase
       .from('topics')
       .insert({
+        id: generateId('t'),
         title: data.title, description: '', status: data.status ?? 'to_learn',
         board_id: data.boardId, type: 'learning', difficulty: 'medium',
         progress: 0, tags: [], review_date: null, checklist: [], resources: [],
@@ -246,6 +248,7 @@ export function useDataStore() {
     const { data: row, error: err } = await supabase
       .from('topics')
       .insert({
+        id: generateId('t'),
         title: `${topic.title} (copy)`,
         description: topic.description,
         status: 'to_learn',
