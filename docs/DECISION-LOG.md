@@ -166,3 +166,44 @@ All 9 component files that imported from `mockData.ts` were updated. The file wa
 - ❌ Требует настройки сервера для SPA fallback при деплое (все пути → index.html)
 
 **Паттерн с query param для drawer:** `?topic=<id>` вместо вложенного маршрута. Это позволяет открывать drawer поверх любого маршрута и сохранять его состояние при навигации. Альтернатива — `/boards/:boardId/topics/:topicId` — создала бы сложный вложенный layout.
+
+---
+
+## DL-011 — Supabase Realtime: fetchAll() при изменениях, не применение payload
+
+**Date:** 2026-08 | **Status:** Accepted
+
+**Context:** Realtime subscription получает события изменений из БД. Есть два подхода: (A) применять payload из события к локальному state, (B) вызывать `fetchAll()` при любом событии.
+
+**Decision:** Вариант B — `fetchAll()` при любом событии на `boards` или `topics`.
+
+**Rationale:**
+- Payload из `postgres_changes` содержит только изменённую строку без вычисляемых полей (`topicCount`, `completedCount`, `updatedAt`). Применение payload потребует дублирования логики `mapBoard/mapTopic`.
+- Для single-user инструмента события приходят редко — extra fetchAll не заметен.
+- Логика в `useDataStore` остаётся простой и предсказуемой.
+
+**Trade-offs:**
+- ✅ Код простой — один `fetchAll()`, никакой логики мёржа
+- ✅ Гарантированная консистентность с БД после любого события
+- ❌ Каждое событие = лишний round-trip к Supabase
+- ❌ При высокой частоте событий (batch import) — много лишних запросов
+
+**Mitigation для batch:** `importData` уже вызывает `fetchAll()` в конце, а не на каждый upsert, поэтому Realtime события во время импорта схлопнутся в один финальный fetchAll.
+
+---
+
+## DL-012 — @dnd-kit для drag-and-drop
+
+**Date:** 2026-08 | **Status:** Accepted
+
+**Context:** Kanban-интерфейс без drag-and-drop требует открывать drawer для смены статуса — лишний шаг.
+
+**Decision:** `@dnd-kit/core` (draggable + droppable primitives). Каждая карточка — `useDraggable`, каждая колонка — `useDroppable`. `DragOverlay` рендерит призрак карточки во время drag.
+
+**Почему @dnd-kit, не react-beautiful-dnd:**
+- `react-beautiful-dnd` в режиме maintenance, не поддерживает React 18 StrictMode
+- `@dnd-kit` активно развивается, доступность из коробки, модульная архитектура
+
+**Activation constraint:** `PointerSensor` с `distance: 8` — предотвращает случайный drag при клике на карточку для открытия drawer.
+
+**Оптимистичность:** `updateTopicStatus` применяет новый статус к локальному state немедленно. При ошибке Supabase — rollback к исходному статусу. `fetchAll()` не вызывается — Realtime подхватит изменение и обновит при необходимости.

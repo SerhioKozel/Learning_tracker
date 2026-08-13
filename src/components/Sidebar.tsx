@@ -10,6 +10,7 @@ import type { Board } from '../types';
 interface SidebarProps {
   boards: Board[];
   loading: boolean;
+  realtimeStatus: 'connecting' | 'connected' | 'disconnected';
 }
 
 const navItems = [
@@ -20,7 +21,7 @@ const navItems = [
   { to: '/settings', label: 'Settings',   icon: Settings,        end: true },
 ];
 
-export default function Sidebar({ boards, loading }: SidebarProps) {
+export default function Sidebar({ boards, loading, realtimeStatus }: SidebarProps) {
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
 
@@ -157,7 +158,22 @@ export default function Sidebar({ boards, loading }: SidebarProps) {
           </div>
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-xs font-medium text-ink-100">Learning Tracker</div>
-            <div className="truncate text-[10px] text-ink-600">Connected · Supabase</div>
+            <div className="flex items-center gap-1.5">
+              <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                realtimeStatus === 'connected'  ? 'bg-emerald-400' :
+                realtimeStatus === 'connecting' ? 'bg-amber-400 animate-pulse' :
+                                                   'bg-rose-400'
+              }`} />
+              <span className={`truncate text-[10px] transition-colors ${
+                realtimeStatus === 'connected'  ? 'text-emerald-500' :
+                realtimeStatus === 'connecting' ? 'text-amber-500' :
+                                                   'text-rose-500'
+              }`}>
+                {realtimeStatus === 'connected'  ? 'Live · Synced' :
+                 realtimeStatus === 'connecting' ? 'Connecting…' :
+                                                   'Disconnected'}
+              </span>
+            </div>
           </div>
         </div>
       </div>

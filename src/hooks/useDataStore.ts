@@ -114,8 +114,40 @@ export function useDataStore() {
     setLoading(false);
   }, []);
 
+  const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+
   useEffect(() => {
     fetchAll();
+  }, [fetchAll]);
+
+  // ─── Supabase Realtime subscription ────────────────────────────────────────
+  // A single channel subscribes to all INSERT/UPDATE/DELETE events on both
+  // tables. On any change we call fetchAll() to stay consistent with the DB.
+  // This is intentionally simple — fine for a single-user tool where event
+  // frequency is low. For high-frequency updates, apply the payload directly.
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'boards' },
+        () => { fetchAll(); },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'topics' },
+        () => { fetchAll(); },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setRealtimeStatus('connected');
+        else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setRealtimeStatus('disconnected');
+        else setRealtimeStatus('connecting');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchAll]);
 
   // ─── Board mutations ────────────────────────────────────────────────────────
@@ -128,7 +160,7 @@ export function useDataStore() {
   }): Promise<Board | null> => {
     const { data: row, error: err } = await supabase
       .from('boards')
-      .insert({ id: generateId('b'), title: data.title, description: data.description, color: data.color, icon: data.icon })
+      .insert({ title: data.title, description: data.description, color: data.color, icon: data.icon })
       .select('*')
       .maybeSingle();
 
@@ -164,7 +196,7 @@ export function useDataStore() {
 
     const { data: newBoard, error: boardErr } = await supabase
       .from('boards')
-      .insert({ id: generateId('b'), title: `${board.title} (copy)`, description: board.description, color: board.color, icon: board.icon })
+      .insert({ title: `${board.title} (copy)`, description: board.description, color: board.color, icon: board.icon })
       .select('*')
       .maybeSingle();
 
@@ -173,7 +205,6 @@ export function useDataStore() {
     const { data: boardTopics } = await supabase.from('topics').select('*').eq('board_id', id);
     if (boardTopics && boardTopics.length > 0) {
       const newTopics = boardTopics.map((t) => ({
-        id: generateId('t'),
         title: t.title, description: t.description, status: t.status,
         board_id: newBoard.id, type: t.type, difficulty: t.difficulty,
         progress: t.progress, tags: t.tags, review_date: t.review_date,
@@ -197,7 +228,6 @@ export function useDataStore() {
     const { data: row, error: err } = await supabase
       .from('topics')
       .insert({
-        id: generateId('t'),
         title: data.title, description: '', status: data.status ?? 'to_learn',
         board_id: data.boardId, type: 'learning', difficulty: 'medium',
         progress: 0, tags: [], review_date: null, checklist: [], resources: [],
@@ -248,7 +278,6 @@ export function useDataStore() {
     const { data: row, error: err } = await supabase
       .from('topics')
       .insert({
-        id: generateId('t'),
         title: `${topic.title} (copy)`,
         description: topic.description,
         status: 'to_learn',
@@ -271,6 +300,26 @@ export function useDataStore() {
     await fetchAll();
     return mapTopic(row as RawTopic);
   }, [topics, fetchAll]);
+
+  // Optimistic status update — used by DnD drag-and-drop
+  const updateTopicStatus = useCallback(async (id: string, status: Status): Promise<void> => {
+    const topic = topics.find((t) => t.id === id);
+    if (!topic || topic.status === status) return;
+
+    // Apply optimistically so the card moves instantly
+    setTopics((prev) => prev.map((t) => t.id === id ? { ...t, status } : t));
+
+    const { error: err } = await supabase
+      .from('topics')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (err) {
+      setError(err.message);
+      // Rollback to original status
+      setTopics((prev) => prev.map((t) => t.id === id ? { ...t, status: topic.status } : t));
+    }
+  }, [topics]);
 
   const deleteTopic = useCallback(async (id: string): Promise<void> => {
     const { error: err } = await supabase.from('topics').delete().eq('id', id);
@@ -385,9 +434,9 @@ export function useDataStore() {
   }, [fetchAll]);
 
   return {
-    boards, topics, loading, error, refresh: fetchAll,
+    boards, topics, loading, error, realtimeStatus, refresh: fetchAll,
     createBoard, updateBoard, deleteBoard, duplicateBoard,
-    createTopic, updateTopic, duplicateTopic, deleteTopic,
+    createTopic, updateTopic, updateTopicStatus, duplicateTopic, deleteTopic,
     addChecklistItem, deleteChecklistItem,
     addResource, deleteResource,
     exportData, importData, resetData,

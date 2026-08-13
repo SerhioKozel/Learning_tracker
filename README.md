@@ -1,18 +1,18 @@
 # Learning Tracker
 
-A personal learning management application built around a Kanban workflow. Organize knowledge, track progress, plan reviews, and keep all your learning resources in one place.
+A personal learning management application built around a Kanban workflow. Organize knowledge, track progress, schedule reviews, and keep all your learning resources in one place.
 
 ---
 
-## What it does
+## What It Does
 
-Learning is naturally fragmented — bookmarks in one tab, notes in another, YouTube playlists somewhere else. Learning Tracker consolidates everything into a single interface where each topic you want to learn becomes a card that moves through five stages:
+Learning is naturally fragmented — tabs, bookmarks, notes in different apps. Learning Tracker consolidates everything into a single interface where each topic you want to learn becomes a card that moves through five stages:
 
 ```
 To Learn → Learning → Practice → Review → Completed
 ```
 
-Topics live inside **Boards** (e.g. "Frontend", "Algorithms", "System Design"). Each topic holds a checklist, linked resources, notes, difficulty, and a scheduled review date. A Dashboard gives an overview of recent activity, upcoming reviews, and overall progress.
+Topics live inside **Boards** organized around a subject (e.g. "Frontend", "System Design", "Algorithms"). Each topic holds a checklist, resource links, notes, difficulty rating, and a scheduled review date. A Dashboard gives an overview of activity, upcoming reviews, and real streak data.
 
 ---
 
@@ -21,11 +21,10 @@ Topics live inside **Boards** (e.g. "Frontend", "Algorithms", "System Design"). 
 | Layer | Technology |
 |-------|-----------|
 | UI | React 18 + TypeScript |
-| Styling | Tailwind CSS v3 (custom design system) |
-| Build | Vite |
+| Styling | Tailwind CSS v3 — custom design system |
+| Build | Vite 5 |
 | Icons | lucide-react |
-| Backend | Supabase (PostgreSQL + RLS) |
-| Auth | None — single-tenant, anon key |
+| Backend | Supabase (PostgreSQL + Row Level Security) |
 
 ---
 
@@ -34,13 +33,13 @@ Topics live inside **Boards** (e.g. "Frontend", "Algorithms", "System Design"). 
 ### 1. Prerequisites
 
 - Node.js 18+
-- A Supabase project (free tier works)
+- A [Supabase](https://supabase.com) project (free tier is sufficient)
 
-### 2. Clone and install
+### 2. Install
 
 ```bash
 git clone <repo-url>
-cd tracker_v2
+cd learning-tracker
 npm install
 ```
 
@@ -50,24 +49,18 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` and fill in your Supabase credentials:
+Edit `.env`:
 
+```env
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-```
+
+Both values are in **Supabase Dashboard → Project Settings → API**.
 
 ### 4. Apply the database schema
 
-Run the migrations in the Supabase SQL editor (or via the Supabase CLI):
-
-```bash
-# Using Supabase CLI
-supabase db push
-
-# Or manually: copy the contents of
-# supabase/migrations/*.sql into the Supabase SQL editor
-```
+Run the SQL files in `supabase/migrations/` in the Supabase SQL editor (in order).
 
 ### 5. Run
 
@@ -79,26 +72,15 @@ Open [http://localhost:5173](http://localhost:5173).
 
 ---
 
-## Available Scripts
+## Scripts
 
-```bash
-npm run dev        # Start dev server (HMR)
-npm run build      # Production build
-npm run preview    # Preview production build locally
-npm run lint       # ESLint
-npm run typecheck  # TypeScript check without emitting
-```
-
----
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `VITE_SUPABASE_URL` | Your Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key (public, safe to expose) |
-
-See `.env.example` for a template.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server with HMR |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Preview production build locally |
+| `npm run typecheck` | TypeScript check — must be clean before committing |
+| `npm run lint` | ESLint — must be clean before committing |
 
 ---
 
@@ -106,57 +88,41 @@ See `.env.example` for a template.
 
 ```
 src/
-├── App.tsx               # Root layout + view routing
-├── main.tsx              # Entry point
-├── index.css             # Design system tokens + global styles
-├── components/           # View-level and feature components
-│   ├── Sidebar.tsx
-│   ├── Dashboard.tsx
-│   ├── BoardsList.tsx
-│   ├── BoardView.tsx
-│   ├── TopicDrawer.tsx
-│   ├── Statistics.tsx
-│   ├── CalendarView.tsx
-│   ├── SettingsView.tsx
-│   └── DesignSystem.tsx
-├── hooks/
-│   └── useDataStore.ts   # All Supabase queries and mutations
-├── data/
-│   └── mockData.ts       # Domain types, config maps, utility functions
-└── lib/
-    └── supabase.ts       # Supabase client singleton
+├── types/         # Domain type definitions
+├── config/        # Semantic config maps and constants
+├── utils/         # Pure utility functions (analytics, date, id)
+├── lib/           # Supabase client singleton
+├── hooks/         # useDataStore — all remote state and mutations
+├── components/    # View and feature components
+│   └── ui/        # Reusable UI primitives
+└── App.tsx        # Root layout, routing, modals
 ```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for a detailed explanation of each layer.
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, component model, data flow |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local setup, scripts, workflow, common issues |
+| [docs/PROJECT-STRUCTURE.md](docs/PROJECT-STRUCTURE.md) | Every file and folder explained |
+| [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) | Colors, typography, tokens, component classes |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Code standards, conventions, checklist |
+| [docs/DECISION-LOG.md](docs/DECISION-LOG.md) | Why specific technical choices were made |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What's built and what's planned |
+| [docs/SECURITY.md](docs/SECURITY.md) | Security model and deployment guidance |
+| [docs/BACKLOG.md](docs/BACKLOG.md) | Prioritised task list |
+| [CHANGELOG.md](CHANGELOG.md) | History of all notable changes |
 
 ---
 
-## Database Schema
+## Security
 
-Two tables: `boards` and `topics`.
-
-```sql
-boards (id, title, description, color, icon, created_at, updated_at)
-topics (id, title, description, status, board_id, type, difficulty,
-        progress, tags, review_date, checklist, resources, notes,
-        history, created_at, updated_at)
-```
-
-Full schema with indexes and RLS policies is in `supabase/migrations/`.
+This is a single-tenant personal tool. All data is accessible via the Supabase anon key — keep it private. Do not deploy to a public URL without adding authentication first. See [docs/SECURITY.md](docs/SECURITY.md).
 
 ---
 
-## Security Model
+## License
 
-This is a single-tenant application with no authentication. Row Level Security is enabled on both tables with `USING (true)` policies — all data is accessible via the Supabase anon key. This is intentional for a personal, self-hosted tool.
-
-If you deploy this publicly, review the RLS policies and add authentication appropriate to your use case.
-
----
-
-## Further Reading
-
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — component model, data flow, design decisions
-- [DESIGN-SYSTEM.md](./DESIGN-SYSTEM.md) — color tokens, component classes, typography
-- [DECISION-LOG.md](./DECISION-LOG.md) — why specific technical choices were made
-- [ROADMAP.md](./ROADMAP.md) — what's planned next
+MIT

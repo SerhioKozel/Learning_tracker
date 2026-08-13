@@ -42,6 +42,7 @@ function BoardViewRoute({
       onBack={() => navigate('/boards')}
       onCreateTopic={store.createTopic}
       onDeleteTopic={store.deleteTopic}
+      onUpdateTopicStatus={store.updateTopicStatus}
     />
   );
 }
@@ -158,6 +159,7 @@ export default function App() {
       <Sidebar
         boards={store.boards}
         loading={store.loading}
+        realtimeStatus={store.realtimeStatus}
       />
 
       <div className="relative flex min-w-0 flex-1 flex-col">

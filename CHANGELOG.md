@@ -8,43 +8,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Drag-and-drop topic cards between Kanban columns (`@dnd-kit/core`)
+- `DragOverlay` — ghost card with subtle rotation during drag
+- `updateTopicStatus` — optimistic status update with rollback on error
+- Supabase Realtime subscription — multi-tab sync on any DB change
+- Realtime connection status indicator in Sidebar footer (Live / Connecting / Disconnected)
+- Migration `20260809000000_enable_realtime.sql` — enables `postgres_changes` for both tables
 - Progress slider in TopicDrawer (range input, step 5%)
 - Tag add/remove in TopicDrawer (Enter or comma to add, × to remove)
-- Delete checklist item UI — trash icon on hover per item
-- Delete resource UI — trash icon on hover per resource
-- Confirmation dialog for topic deletion (TopicDrawer and BoardView)
-- Confirmation dialog for board deletion (BoardsList)
-- `ConfirmDialog` reusable UI primitive (`src/components/ui/`)
-- `computeStreak` — real streak computed from `updatedAt` timestamps
+- Delete checklist item UI — trash icon on hover
+- Delete resource UI — trash icon on hover
+- Confirmation dialog for topic deletion
+- Confirmation dialog for board deletion
+- `computeStreak` — real streak from `updatedAt` timestamps
 - `generateWeeklyActivity` — real weekly count, no random padding
 - `updatedAtRaw` field on `Board` for reliable timestamp-based sorting
 - `.env.example` with documented environment variables
-- Full documentation suite (`docs/`)
+- Full documentation suite in `docs/`
 
 ### Changed
 - `src/data/mockData.ts` replaced by `src/types/`, `src/config/`, `src/utils/`
-- `boardIcons` constant — single source in `src/config/index.ts` (was duplicated 3×)
-- `heatmapColors` constant — single source in `src/config/index.ts` (was duplicated 2×)
-- BoardsList sort — uses `updatedAtRaw` ISO timestamp (was fragile string-rank map)
+- `boardIcons` — single source in `src/config/index.ts`
+- `heatmapColors` — single source in `src/config/index.ts`
+- BoardsList sort uses `updatedAtRaw` ISO timestamp (was fragile string-rank map)
 - ID generation — `crypto.randomUUID()` via `generateId()` (was `Date.now()`)
-- Checklist and resource mutations — optimistic updates with rollback on error
-- TopicDrawer stale-state fix — sync via `useRef` comparison, no `eslint-disable`
-- Dashboard greeting — removed hardcoded "Alex", shows real streak or generic heading
-- `package.json` name — `learning-tracker` (was Vite scaffolding default)
+- Checklist and resource mutations — optimistic updates with rollback
+- TopicDrawer stale-state fix — sync via `useRef`, no `eslint-disable`
+- Dashboard — real streak, real activity, proper empty state with onboarding
+- TopicDrawer description — editable textarea with onBlur save
+- TopicDrawer title — click-to-edit inline
+- `package.json` name — `learning-tracker`
+- React Router v6 — URL navigation, `?topic=` query param for drawer
+- Lazy loading — Statistics, CalendarView, SettingsView are separate chunks
+- Sidebar uses `<NavLink>` — active state from URL
+- `PointerSensor` activation constraint `distance: 8` prevents accidental drag on card click
 
 ### Removed
-- `src/data/mockData.ts` — split into typed modules, file deleted
-- Bell notification button with fake amber badge (header)
-- Star/favourite button with no action (TopicDrawer)
-- DesignSystem page from sidebar navigation (component kept for dev reference)
-- Hardcoded streak values (23 days current, 41 days best)
-- `Math.random()` in `generateWeeklyHours`
-- `sortRank` string-matching function in BoardsList
-- `package.json.bak`
-
-### Fixed
-- `eslint-disable-line react-hooks/exhaustive-deps` in TopicDrawer — underlying stale-state bug resolved
-- Duplicate board generates unique UUIDs per topic (was `Date.now()` in sync loop)
+- `src/data/mockData.ts` — split into typed modules
+- Bell notification button with fake badge
+- Star/favourite button with no action
+- DesignSystem from sidebar navigation
+- Hardcoded streak values and `Math.random()` in chart data
+- `sortRank` string-matching in BoardsList
+- `audit.json` process artifact
 
 ---
 
