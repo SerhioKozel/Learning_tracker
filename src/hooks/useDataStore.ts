@@ -306,18 +306,29 @@ export function useDataStore() {
     const topic = topics.find((t) => t.id === id);
     if (!topic || topic.status === status) return;
 
-    // Apply optimistically so the card moves instantly
-    setTopics((prev) => prev.map((t) => t.id === id ? { ...t, status } : t));
+    const historyEntry: HistoryEntry = {
+      id: generateId('h'),
+      action: 'moved',
+      detail: `${topic.status.replace('_', ' ')} → ${status.replace('_', ' ')}`,
+      date: new Date().toISOString(),
+    };
+    const newHistory = [...topic.history, historyEntry].slice(-50);
+
+    // Apply optimistically
+    setTopics((prev) => prev.map((t) =>
+      t.id === id ? { ...t, status, history: newHistory } : t,
+    ));
 
     const { error: err } = await supabase
       .from('topics')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({ status, history: newHistory, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (err) {
       setError(err.message);
-      // Rollback to original status
-      setTopics((prev) => prev.map((t) => t.id === id ? { ...t, status: topic.status } : t));
+      setTopics((prev) => prev.map((t) =>
+        t.id === id ? { ...t, status: topic.status, history: topic.history } : t,
+      ));
     }
   }, [topics]);
 
@@ -329,6 +340,40 @@ export function useDataStore() {
 
   // ─── Optimistic sub-item mutations ─────────────────────────────────────────
   // Applied to local state immediately for instant feedback, persisted in background.
+
+  const toggleChecklistItem = useCallback(async (topicId: string, itemId: string): Promise<void> => {
+    const topic = topics.find((t) => t.id === topicId);
+    if (!topic) return;
+    const updated = topic.checklist.map((item) =>
+      item.id === itemId ? { ...item, done: !item.done } : item,
+    );
+    setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, checklist: updated } : t));
+    const { error: err } = await supabase
+      .from('topics')
+      .update({ checklist: updated, updated_at: new Date().toISOString() })
+      .eq('id', topicId);
+    if (err) {
+      setError(err.message);
+      setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, checklist: topic.checklist } : t));
+    }
+  }, [topics]);
+
+  const toggleResource = useCallback(async (topicId: string, resourceId: string): Promise<void> => {
+    const topic = topics.find((t) => t.id === topicId);
+    if (!topic) return;
+    const updated = topic.resources.map((r) =>
+      r.id === resourceId ? { ...r, done: !r.done } : r,
+    );
+    setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, resources: updated } : t));
+    const { error: err } = await supabase
+      .from('topics')
+      .update({ resources: updated, updated_at: new Date().toISOString() })
+      .eq('id', topicId);
+    if (err) {
+      setError(err.message);
+      setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, resources: topic.resources } : t));
+    }
+  }, [topics]);
 
   const addChecklistItem = useCallback(async (topicId: string, text: string): Promise<void> => {
     const topic = topics.find((t) => t.id === topicId);
@@ -437,8 +482,8 @@ export function useDataStore() {
     boards, topics, loading, error, realtimeStatus, refresh: fetchAll,
     createBoard, updateBoard, deleteBoard, duplicateBoard,
     createTopic, updateTopic, updateTopicStatus, duplicateTopic, deleteTopic,
-    addChecklistItem, deleteChecklistItem,
-    addResource, deleteResource,
+    addChecklistItem, deleteChecklistItem, toggleChecklistItem,
+    addResource, deleteResource, toggleResource,
     exportData, importData, resetData,
   };
 }

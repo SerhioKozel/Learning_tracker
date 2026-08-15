@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import { statusConfig } from '../config';
 import { generateCalendarEvents } from '../utils/analytics';
-import type { CalendarEvent } from '../types';
-import type { Topic } from '../types';
+import type { CalendarEvent, Topic } from '../types';
 
 interface CalendarViewProps {
   topics: Topic[];

@@ -92,6 +92,7 @@ export default function App() {
   const [newTopicOpen, setNewTopicOpen] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicBoardId, setNewTopicBoardId] = useState('');
+  const [isCreatingTopic, setIsCreatingTopic] = useState(false);
 
   useEffect(() => {
     if (store.boards.length > 0 && !newTopicBoardId) {
@@ -125,21 +126,31 @@ export default function App() {
   }, [navigate]);
 
   const handleCreateTopic = useCallback(async () => {
-    if (!newTopicTitle.trim() || !newTopicBoardId) return;
-    const topic = await store.createTopic({ title: newTopicTitle.trim(), boardId: newTopicBoardId });
-    setNewTopicOpen(false);
-    setNewTopicTitle('');
-    if (topic) navigate(`/boards/${newTopicBoardId}`);
-  }, [newTopicTitle, newTopicBoardId, store, navigate]);
+    if (!newTopicTitle.trim() || !newTopicBoardId || isCreatingTopic) return;
+    setIsCreatingTopic(true);
+    try {
+      const topic = await store.createTopic({ title: newTopicTitle.trim(), boardId: newTopicBoardId });
+      setNewTopicOpen(false);
+      setNewTopicTitle('');
+      if (topic) navigate(`/boards/${newTopicBoardId}`);
+    } finally {
+      setIsCreatingTopic(false);
+    }
+  }, [newTopicTitle, newTopicBoardId, isCreatingTopic, store, navigate]);
 
   // ─── Search results ────────────────────────────────────────────────────────
   const searchResults: { topics: Topic[]; boards: typeof store.boards } = {
     topics: searchQuery
       ? store.topics
-          .filter((t) =>
-            t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
-          )
+          .filter((t) => {
+            const q = searchQuery.toLowerCase();
+            return (
+              t.title.toLowerCase().includes(q) ||
+              t.tags.some((tag) => tag.toLowerCase().includes(q)) ||
+              t.description.toLowerCase().includes(q) ||
+              t.notes.toLowerCase().includes(q)
+            );
+          })
           .slice(0, 6)
       : [],
     boards: searchQuery
@@ -273,8 +284,10 @@ export default function App() {
           onUpdate={store.updateTopic}
           onAddChecklistItem={store.addChecklistItem}
           onDeleteChecklistItem={store.deleteChecklistItem}
+          onToggleChecklistItem={store.toggleChecklistItem}
           onAddResource={store.addResource}
           onDeleteResource={store.deleteResource}
+          onToggleResource={store.toggleResource}
           onDuplicateTopic={store.duplicateTopic}
           onDeleteTopic={store.deleteTopic}
         />
@@ -397,10 +410,10 @@ export default function App() {
               <button onClick={() => setNewTopicOpen(false)} className="btn-soft">Cancel</button>
               <button
                 onClick={handleCreateTopic}
-                disabled={!newTopicTitle.trim()}
+                disabled={!newTopicTitle.trim() || isCreatingTopic}
                 className="btn-primary disabled:opacity-40"
               >
-                Create topic
+                {isCreatingTopic ? 'Creating…' : 'Create topic'}
               </button>
             </div>
           </div>

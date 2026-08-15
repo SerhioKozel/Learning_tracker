@@ -108,10 +108,10 @@ src/
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local setup, scripts, workflow, common issues |
 | [docs/PROJECT-STRUCTURE.md](docs/PROJECT-STRUCTURE.md) | Every file and folder explained |
 | [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) | Colors, typography, tokens, component classes |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Code standards, conventions, checklist |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Code standards, conventions, checklist |
 | [docs/DECISION-LOG.md](docs/DECISION-LOG.md) | Why specific technical choices were made |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What's built and what's planned |
-| [docs/SECURITY.md](docs/SECURITY.md) | Security model and deployment guidance |
+| [SECURITY.md](SECURITY.md) | Security model and deployment guidance |
 | [docs/BACKLOG.md](docs/BACKLOG.md) | Prioritised task list |
 | [CHANGELOG.md](CHANGELOG.md) | History of all notable changes |
 
@@ -119,7 +119,7 @@ src/
 
 ## Security
 
-This is a single-tenant personal tool. All data is accessible via the Supabase anon key — keep it private. Do not deploy to a public URL without adding authentication first. See [docs/SECURITY.md](docs/SECURITY.md).
+This is a single-tenant personal tool. All data is accessible via the Supabase anon key — keep it private. Do not deploy to a public URL without adding authentication first. See [SECURITY.md](SECURITY.md).
 
 ---
 

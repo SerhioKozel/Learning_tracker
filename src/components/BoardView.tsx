@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -9,14 +9,13 @@ import {
   type DragEndEvent,
   type DragOverEvent,
 } from '@dnd-kit/core';
-import { useDroppable } from '@dnd-kit/core';
-import { useDraggable } from '@dnd-kit/core';
-import {
-  Plus, Clock, CheckSquare, Link2, ChevronLeft,
-  Search, Trash2, X, Layout, Filter, GripVertical,
-} from 'lucide-react';
-import { statusConfig, boardColorMap, topicTypeConfig, difficultyConfig, BOARD_ICONS } from '../config';
+import { Plus, ChevronLeft, X, Layout } from 'lucide-react';
+import { statusConfig, boardColorMap, BOARD_ICONS } from '../config';
 import ConfirmDialog from './ui/ConfirmDialog';
+import DraggableCard from './board/DraggableCard';
+import DroppableColumn from './board/DroppableColumn';
+import CardContent from './board/CardContent';
+import BoardFilters from './board/BoardFilters';
 import type { Status, Difficulty, TopicType, Topic, Board } from '../types';
 
 interface BoardViewProps {
@@ -32,8 +31,6 @@ interface BoardViewProps {
 
 const COLUMN_ORDER: Status[] = ['to_learn', 'learning', 'practice', 'review', 'completed'];
 
-// ─── Draggable card ───────────────────────────────────────────────────────────
-
 function DraggableCard({
   topic,
   isDragging,
@@ -45,7 +42,7 @@ function DraggableCard({
   onClick: () => void;
   onDelete: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: topic.id });
+  const { attributes, listeners, setNodeRef, transform, isDragging: isActiveDrag } = useDraggable({ id: topic.id });
 
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -55,24 +52,28 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative w-full rounded-xl border bg-ink-800 p-3.5 transition-all duration-150 ${
-        isDragging
+      // listeners go on the root element so any pointer down on the card can start a drag.
+      // The onClick button below calls stopPropagation so clicks don't accidentally drag.
+      {...listeners}
+      {...attributes}
+      className={`group relative w-full rounded-xl border bg-ink-800 p-3.5 ${
+        isActiveDrag
+          ? 'cursor-grabbing border-sky-500/40 opacity-40 shadow-none'
+          : isDragging
           ? 'border-sky-500/40 opacity-40 shadow-none'
-          : 'border-white/[0.06] hover:-translate-y-0.5 hover:border-white/[0.1] hover:shadow-lift'
+          : 'cursor-grab border-white/[0.06] hover:-translate-y-0.5 hover:border-white/[0.1] hover:shadow-lift'
       }`}
     >
-      {/* Drag handle */}
-      <button
-        {...listeners}
-        {...attributes}
-        className="absolute left-2 top-1/2 -translate-y-1/2 cursor-grab rounded p-0.5 text-ink-700 opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
-        onClick={(e) => e.stopPropagation()}
-        title="Drag to move"
-      >
+      {/* Drag handle visual indicator */}
+      <div className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-700 opacity-0 transition-opacity group-hover:opacity-100">
         <GripVertical className="h-3.5 w-3.5" />
-      </button>
+      </div>
 
-      <button onClick={onClick} className="block w-full pl-3 text-left">
+      {/* Clicking the card content opens the drawer — stopPropagation prevents drag */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className="block w-full pl-3 text-left"
+      >
         <CardContent topic={topic} />
       </button>
 
@@ -165,7 +166,7 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-0 flex-1 space-y-2.5 overflow-y-auto rounded-xl pb-4 transition-colors duration-150 ${
+      className={`flex min-h-[120px] flex-1 flex-col gap-2.5 overflow-y-auto rounded-xl pb-4 transition-colors duration-150 ${
         isOver ? 'bg-sky-500/5 ring-1 ring-sky-500/20' : ''
       }`}
     >
@@ -191,16 +192,6 @@ export default function BoardView({
   // DnD state
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<Status | null>(null);
-
-  const filterRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
 
   // Require 8px movement before drag starts — prevents accidental drags on click
   const sensors = useSensors(
@@ -264,7 +255,6 @@ export default function BoardView({
     return true;
   });
 
-  const activeFilterCount = (filterDifficulty ? 1 : 0) + (filterType ? 1 : 0);
   const pct = board.topicCount > 0 ? Math.round((board.completedCount / board.topicCount) * 100) : 0;
   const topicToDelete = topics.find((t) => t.id === confirmDeleteId);
   const activeTopic = topics.find((t) => t.id === activeDragId) ?? null;
@@ -293,93 +283,17 @@ export default function BoardView({
             </div>
           </div>
 
-          {/* Search + Filter */}
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-600" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search topics…"
-                className="w-44 rounded-lg border border-white/[0.06] bg-ink-800/60 py-2 pl-8 pr-3 text-xs text-ink-100 placeholder:text-ink-600 transition-colors focus:border-sky-500/40 focus:outline-none"
-              />
-            </div>
-            <div ref={filterRef} className="relative">
-              <button
-                onClick={() => setFilterOpen((o) => !o)}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                  activeFilterCount > 0
-                    ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
-                    : 'border-white/[0.06] bg-ink-800/60 text-ink-400 hover:text-ink-100'
-                }`}
-              >
-                <Filter className="h-3.5 w-3.5" />
-                Filter
-                {activeFilterCount > 0 && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[10px] text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-              {filterOpen && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-52 animate-scale-in rounded-xl border border-white/[0.08] bg-ink-700 p-3 shadow-lift">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Filters</span>
-                    {activeFilterCount > 0 && (
-                      <button
-                        onClick={() => { setFilterDifficulty(null); setFilterType(null); }}
-                        className="text-[10px] text-sky-400 hover:text-sky-300"
-                      >
-                        Clear all
-                      </button>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="mb-1.5 text-[10px] font-medium text-ink-500">Difficulty</div>
-                      <div className="flex gap-1">
-                        {(['easy', 'medium', 'hard'] as Difficulty[]).map((d) => {
-                          const cfg = difficultyConfig[d];
-                          return (
-                            <button
-                              key={d}
-                              onClick={() => setFilterDifficulty(filterDifficulty === d ? null : d)}
-                              className={`flex-1 rounded-md py-1 text-[10px] font-medium transition-colors ${
-                                filterDifficulty === d ? `${cfg.bg} ${cfg.text}` : 'bg-ink-800 text-ink-400 hover:text-ink-100'
-                              }`}
-                            >
-                              {cfg.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="mb-1.5 text-[10px] font-medium text-ink-500">Type</div>
-                      <div className="grid grid-cols-2 gap-1">
-                        {(Object.keys(topicTypeConfig) as TopicType[]).map((type) => {
-                          const cfg = topicTypeConfig[type];
-                          return (
-                            <button
-                              key={type}
-                              onClick={() => setFilterType(filterType === type ? null : type)}
-                              className={`rounded-md px-2 py-1 text-left text-[10px] transition-colors ${
-                                filterType === type
-                                  ? 'bg-sky-500/15 text-sky-300'
-                                  : 'text-ink-400 hover:bg-ink-800 hover:text-ink-100'
-                              }`}
-                            >
-                              {cfg.emoji} {cfg.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <BoardFilters
+            query={query}
+            filterDifficulty={filterDifficulty}
+            filterType={filterType}
+            filterOpen={filterOpen}
+            onQueryChange={setQuery}
+            onFilterOpenChange={setFilterOpen}
+            onDifficultyChange={setFilterDifficulty}
+            onTypeChange={setFilterType}
+            onClearAll={() => { setFilterDifficulty(null); setFilterType(null); }}
+          />
         </div>
 
         <div className="relative mt-5 flex items-center gap-6">

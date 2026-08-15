@@ -25,6 +25,7 @@ export default function BoardsList({
   const [menuBoard, setMenuBoard] = useState<string | null>(null);
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const [formTitle, setFormTitle] = useState('');
@@ -75,23 +76,28 @@ export default function BoardsList({
   };
 
   const handleSubmit = async () => {
-    if (!formTitle.trim()) return;
-    if (editingBoard) {
-      await onUpdateBoard(editingBoard.id, {
-        title: formTitle.trim(),
-        description: formDescription.trim(),
-        color: formColor,
-        icon: formIcon,
-      });
-    } else {
-      await onCreateBoard({
-        title: formTitle.trim(),
-        description: formDescription.trim(),
-        color: formColor,
-        icon: formIcon,
-      });
+    if (!formTitle.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      if (editingBoard) {
+        await onUpdateBoard(editingBoard.id, {
+          title: formTitle.trim(),
+          description: formDescription.trim(),
+          color: formColor,
+          icon: formIcon,
+        });
+      } else {
+        await onCreateBoard({
+          title: formTitle.trim(),
+          description: formDescription.trim(),
+          color: formColor,
+          icon: formIcon,
+        });
+      }
+      setShowForm(false);
+    } finally {
+      setIsSubmitting(false);
     }
-    setShowForm(false);
   };
 
   const handleConfirmDelete = async () => {
@@ -307,8 +313,8 @@ export default function BoardsList({
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setShowForm(false)} className="btn-soft">Cancel</button>
-              <button onClick={handleSubmit} disabled={!formTitle.trim()} className="btn-primary disabled:opacity-40">
-                {editingBoard ? 'Save changes' : 'Create board'}
+              <button onClick={handleSubmit} disabled={!formTitle.trim() || isSubmitting} className="btn-primary disabled:opacity-40">
+                {isSubmitting ? 'Saving…' : editingBoard ? 'Save changes' : 'Create board'}
               </button>
             </div>
           </div>
