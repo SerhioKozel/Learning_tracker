@@ -76,7 +76,7 @@ Use `supabase.auth.signInWithOAuth({ provider: 'github' })`.
 Gate `App.tsx` rendering behind a session check.  
 The rest of the application does not need to change.
 
-This migration path is tracked in [BACKLOG.md](./BACKLOG.md) as **BL-011**.
+This migration path is tracked in [BACKLOG.md](docs/BACKLOG.md) as **BL-011**.
 
 ---
 

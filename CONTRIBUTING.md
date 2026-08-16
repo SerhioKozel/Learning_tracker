@@ -6,7 +6,7 @@ How to work on the Learning Tracker codebase effectively.
 
 ## Development Setup
 
-See [DEVELOPMENT.md](./DEVELOPMENT.md) for the full first-time setup guide.
+See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full first-time setup guide.
 
 Quick start:
 
@@ -80,7 +80,7 @@ If either fails, fix the errors before committing. Do not suppress them with `@t
 | Reusable UI primitive | `src/components/ui/` |
 | View or feature component | `src/components/` |
 
-Full guide: [PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md)
+Full guide: [PROJECT-STRUCTURE.md](docs/PROJECT-STRUCTURE.md)
 
 ---
 

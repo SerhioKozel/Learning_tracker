@@ -257,7 +257,7 @@ React Router v6 (`react-router-dom`) with `BrowserRouter` mounted in `main.tsx`.
 
 RLS is enabled on both tables. Policies use `USING (true)` — any holder of the anon key can read and write all data. This is correct for a personal, self-hosted tool.
 
-**Do not share your `VITE_SUPABASE_ANON_KEY` publicly.** See [SECURITY.md](./SECURITY.md) for full guidance.
+**Do not share your `VITE_SUPABASE_ANON_KEY` publicly.** See [SECURITY.md](../SECURITY.md) for full guidance.
 
 ---
 

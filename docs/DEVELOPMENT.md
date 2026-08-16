@@ -165,7 +165,7 @@ The app has no automated tests yet. Test manually by:
 
 ### RLS policies
 
-Both tables have permissive policies (`USING (true)`). If you're adding authentication, see [SECURITY.md](./SECURITY.md).
+Both tables have permissive policies (`USING (true)`). If you're adding authentication, see [SECURITY.md](../SECURITY.md).
 
 ---
 
@@ -196,7 +196,7 @@ The theme class (`dark` or `light`) is applied to `<html>` by `main.tsx` from `l
 
 ## Code Quality Standards
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full list. Key rules:
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full list. Key rules:
 
 - `npm run typecheck` — zero errors before committing
 - `npm run lint` — zero errors before committing  

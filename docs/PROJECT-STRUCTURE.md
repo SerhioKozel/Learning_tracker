@@ -143,4 +143,4 @@ Same principle — previously duplicated in `Dashboard.tsx` and `Statistics.tsx`
 → Add to `src/components/ui/`
 
 ### New view
-→ See "Adding a New View" in [CONTRIBUTING.md](./CONTRIBUTING.md)
+→ See "Adding a New View" in [CONTRIBUTING.md](../CONTRIBUTING.md)
