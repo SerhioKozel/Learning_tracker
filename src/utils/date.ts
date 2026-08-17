@@ -17,11 +17,3 @@ export function timeAgo(date: string | Date): string {
   const months = Math.floor(days / 30);
   return `${months}mo ago`;
 }
-
-/**
- * Returns an ISO date string (YYYY-MM-DD) for a given date.
- */
-export function formatDate(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toISOString().slice(0, 10);
-}

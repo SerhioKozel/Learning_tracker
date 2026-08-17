@@ -1,17 +1,18 @@
 # Roadmap
 
 **Project:** Learning Tracker  
-**Last Updated:** 2026-08-09
+**Last Updated:** 2026-08-16
 
 ---
 
-## Currently Built (v2.1)
+## Currently Built (v2.2)
 
 ### Core
 
 - [x] Board CRUD — create, edit, delete, duplicate
-- [x] Topic CRUD — create, edit, delete (with confirmation)
+- [x] Topic CRUD — create, edit, delete (with confirmation), duplicate
 - [x] Kanban column view per board (5 fixed stages)
+- [x] Drag-and-drop topic cards between columns (`@dnd-kit`, optimistic status update, `DragOverlay`)
 - [x] Status transitions with history tracking
 - [x] Progress slider (0–100%, step 5%)
 - [x] Checklist with item add, toggle, delete
@@ -20,6 +21,15 @@
 - [x] Review date scheduling
 - [x] Topic type and difficulty metadata
 - [x] Tag add and remove
+- [x] Inline topic title editing
+- [x] Editable topic description in drawer
+- [x] Filter topics within board view (status, type, difficulty)
+
+### Navigation
+
+- [x] React Router v7 — URL navigation, working browser back/forward
+- [x] Topic drawer as `?topic=<id>` query param — deep-linkable, survives navigation
+- [x] Sidebar active state derived from URL (`<NavLink>`)
 
 ### Search & Discovery
 
@@ -35,6 +45,7 @@
 - [x] Upcoming reviews panel
 - [x] Recently updated topics
 - [x] Board overview grid
+- [x] Empty state with step-by-step onboarding
 
 ### Statistics
 
@@ -59,46 +70,28 @@
 ### Infrastructure
 
 - [x] Supabase PostgreSQL backend
-- [x] Optimistic updates for checklist and resource operations
+- [x] Supabase Realtime — multi-tab sync, connection status indicator in Sidebar
+- [x] Optimistic updates for checklist, resource, and drag-and-drop status operations
 - [x] Collision-safe UUIDs via `crypto.randomUUID()`
+- [x] `history` array capped at 50 entries per topic
 - [x] Confirmation dialogs for all destructive actions
+- [x] Lazy-loaded route chunks — Statistics, CalendarView, SettingsView
+- [x] `BoardView` and `TopicDrawer` split into focused sub-components (`components/board/`, `components/drawer/`)
 - [x] TypeScript strict mode — zero errors
 - [x] ESLint clean — zero warnings
 
 ---
 
-## Phase 2 — Completeness (Next)
+## Next Up
 
-Tracked in [BACKLOG.md](./BACKLOG.md).
+Everything from the original Phase 2/3/4 plan has shipped — see [BACKLOG.md](./BACKLOG.md) for the full list of completed work (BL-001 through BL-010, BL-013, BL-014).
 
-| ID | Feature | Priority |
-|----|---------|----------|
-| BL-001 | Cap history array at 50 entries | High |
-| BL-002 | Duplicate topic | High |
-| BL-003 | Filter topics within board view (status, type, difficulty) | High |
-| BL-004 | Editable topic description in drawer | High |
-| BL-006 | Lazy-load view components | Medium |
-| BL-007 | Inline topic title editing | Medium |
-| BL-008 | Improved empty state for new users | Medium |
+Two items remain open, both deliberately deferred because they're higher-risk and change the single-user trust model:
 
----
-
-## Phase 3 — Architecture
-
-| ID | Feature | Priority |
-|----|---------|----------|
-| BL-005 | React Router — URL navigation, back button | Medium |
-| BL-010 | Supabase Realtime — multi-tab sync | Medium |
-
----
-
-## Phase 4 — Growth Features
-
-| ID | Feature | Notes |
-|----|---------|-------|
-| BL-009 | Drag-and-drop topic cards between columns | Requires `@dnd-kit` |
-| BL-011 | Authentication (Supabase Auth) | Required before public deployment |
-| BL-012 | PWA / offline support | High complexity |
+| ID | Feature | Priority | Why it's separate from cleanup work |
+|----|---------|----------|--------------------------------------|
+| BL-011 | Authentication (Supabase Auth) | Required before public deployment | Changes the RLS trust model (`USING (true)` → `auth.uid() = user_id`) and adds a sign-in flow. See BACKLOG.md for the migration strategy. |
+| BL-012 | PWA / offline support | High complexity | Needs a service worker, an IndexedDB read cache, and a mutation queue for writes made offline. Conflicts with DL-007's optimistic-update model need design work first. |
 
 ---
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CheckCircle } from 'lucide-react';
 import { statusConfig } from '../config';
 import { generateCalendarEvents } from '../utils/analytics';
 import type { CalendarEvent, Topic } from '../types';
@@ -14,7 +14,6 @@ const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'Jul
 
 const eventTypeConfig: Record<CalendarEvent['type'], { icon: typeof Clock; color: string; bg: string; text: string; dot: string; label: string }> = {
   review: { icon: Clock, color: 'amber', bg: 'bg-amber-500/15', text: 'text-amber-300', dot: 'bg-amber-400', label: 'Review' },
-  deadline: { icon: AlertCircle, color: 'rose', bg: 'bg-rose-500/15', text: 'text-rose-300', dot: 'bg-rose-400', label: 'Deadline' },
   completed: { icon: CheckCircle, color: 'emerald', bg: 'bg-emerald-500/15', text: 'text-emerald-300', dot: 'bg-emerald-400', label: 'Completed' },
 };
 

@@ -37,8 +37,9 @@ src/
 │   └── index.ts          # Semantic config maps + shared constants
 ├── utils/
 │   ├── analytics.ts      # Heatmap, weekly activity, streak
-│   ├── date.ts           # timeAgo, formatDate
-│   └── id.ts             # generateId (crypto.randomUUID)
+│   ├── date.ts           # timeAgo
+│   ├── id.ts             # generateId (crypto.randomUUID)
+│   └── status.ts         # computeStatusChange — shared by TopicDrawer and DnD
 ├── lib/
 │   └── supabase.ts       # Supabase client singleton
 ├── hooks/
@@ -46,6 +47,10 @@ src/
 ├── components/
 │   ├── ui/
 │   │   └── ConfirmDialog.tsx
+│   ├── board/             # BoardView sub-components (BL-014)
+│   │   └── BoardFilters.tsx, CardContent.tsx, DraggableCard.tsx, DroppableColumn.tsx
+│   ├── drawer/             # TopicDrawer sub-components (BL-013)
+│   │   └── TopicHeader.tsx, TopicProperties.tsx, TopicChecklist.tsx, TopicResources.tsx, TopicNotes.tsx, TopicHistory.tsx
 │   ├── Sidebar.tsx
 │   ├── Dashboard.tsx
 │   ├── BoardsList.tsx
@@ -54,7 +59,7 @@ src/
 │   ├── Statistics.tsx
 │   ├── CalendarView.tsx
 │   ├── SettingsView.tsx
-│   └── DesignSystem.tsx  # Dev-only reference, not in nav
+│   └── DesignSystem.tsx  # Reference only — no route, unreachable from the UI
 ├── App.tsx               # Root layout, routing, modals, shortcuts
 ├── main.tsx
 └── index.css             # Design tokens + Tailwind layers
@@ -85,7 +90,7 @@ Topic
   resources: Resource[]             ← JSONB
   notes: string
   history: HistoryEntry[]           ← JSONB (last 50)
-  updatedAt (formatted), createdAt
+  updatedAt (formatted), updatedAtRaw (ISO), createdAt
 ```
 
 All domain types live in `src/types/index.ts`.  
@@ -98,12 +103,12 @@ All semantic mappings (labels, colors, icons per status/type/difficulty) live in
 ### `App.tsx` — Layout shell
 
 Owns:
-- Active view state (`View` string union — no URL router in v1)
-- `activeBoardId` / `activeTopicId` cursor state
+- Theme (dark/light) + `localStorage` persistence
 - Search palette (open, query, results)
 - New topic modal
 - Keyboard shortcut listeners (`Cmd+K`, `Escape`) — unified in one `useEffect`
-- Theme (dark/light) + `localStorage` persistence
+
+Reads navigation state from the URL via React Router (`useParams`, `useLocation`) rather than owning it — `boardId` comes from the route, and `activeTopicId` comes from the `?topic=` query param. See [View Routing](#view-routing) below.
 
 Passes all data and callbacks downward as props. No context, no global store.
 
@@ -114,11 +119,31 @@ Passes all data and callbacks downward as props. No context, no global store.
 | `Sidebar.tsx` | Navigation, board list with progress, filter input |
 | `Dashboard.tsx` | Stats (real streak, real activity), heatmap, upcoming reviews, recent topics |
 | `BoardsList.tsx` | Board CRUD, sort by `updatedAtRaw` timestamp |
-| `BoardView.tsx` | Kanban columns, inline topic creation, confirm delete |
-| `TopicDrawer.tsx` | Full topic detail: status, progress slider, tags, checklist, resources, notes, history |
+| `BoardView.tsx` | Kanban layout, filters, DnD wiring (`@dnd-kit`) — orchestrates the `board/` sub-components below |
+| `TopicDrawer.tsx` | Drawer layout and local field state — orchestrates the `drawer/` sub-components below |
 | `Statistics.tsx` | Weekly activity chart, status donut, board progress, difficulty distribution |
 | `CalendarView.tsx` | Monthly calendar with review date events |
 | `SettingsView.tsx` | Theme toggle, JSON export/import, data reset |
+
+### `src/components/board/` — BoardView sub-components (BL-014)
+
+| Component | Responsibility |
+|-----------|---------------|
+| `BoardFilters.tsx` | Search input + difficulty/type filter dropdown |
+| `CardContent.tsx` | Shared card body — used by both `DraggableCard` and the `DragOverlay` ghost card |
+| `DraggableCard.tsx` | `useDraggable` wrapper around `CardContent` |
+| `DroppableColumn.tsx` | `useDroppable` wrapper for a single Kanban column |
+
+### `src/components/drawer/` — TopicDrawer sub-components (BL-013)
+
+| Component | Responsibility |
+|-----------|---------------|
+| `TopicHeader.tsx` | Title, description, status pills, duplicate/delete/close actions |
+| `TopicProperties.tsx` | Type, difficulty, progress slider, review date, tags |
+| `TopicChecklist.tsx` | Checklist items — add, toggle, delete |
+| `TopicResources.tsx` | Resource links — add, toggle done, delete |
+| `TopicNotes.tsx` | Notes textarea, auto-saved on blur |
+| `TopicHistory.tsx` | Read-only history entry list |
 
 ### `src/components/ui/` — Primitives
 
@@ -233,7 +258,7 @@ CREATE TABLE topics (
 
 ## View Routing
 
-React Router v6 (`react-router-dom`) with `BrowserRouter` mounted in `main.tsx`.
+React Router v7 (`react-router-dom`) with `BrowserRouter` mounted in `main.tsx`.
 
 ```
 /              → Dashboard
@@ -265,7 +290,7 @@ RLS is enabled on both tables. Policies use `USING (true)` — any holder of the
 
 | # | Limitation | Tracked In |
 |---|-----------|-----------|
-| 1 | Full `fetchAll()` on structural mutations — degrades at scale | BL-010 (Realtime) |
+| 1 | Full `fetchAll()` on structural mutations — degrades at scale | No tracked BL item; migration path documented in DECISION-LOG.md, DL-002 (React Query) |
 | 2 | No offline support — requires network | BL-012 |
 | 3 | No authentication — anon key access only | BL-011 |
 | 4 | `history` array capped at 50 entries (older entries discarded) | BL-001 ✅ |

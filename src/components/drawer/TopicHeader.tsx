@@ -1,5 +1,5 @@
 import { X, Trash2, Copy } from 'lucide-react';
-import { statusConfig, boardColorMap } from '../../config';
+import { statusConfig, boardColorMap, STATUS_ORDER } from '../../config';
 import type { Status, Topic, Board } from '../../types';
 
 interface TopicHeaderProps {
@@ -19,8 +19,6 @@ interface TopicHeaderProps {
   onDelete: () => void;
   onClose: () => void;
 }
-
-const STATUS_ORDER: Status[] = ['to_learn', 'learning', 'practice', 'review', 'completed'];
 
 export default function TopicHeader({
   topic, board,

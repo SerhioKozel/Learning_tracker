@@ -212,7 +212,7 @@ export default function BoardsList({
                 <div className="mt-4 flex items-center gap-2">
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-700">
                     <div
-                      className={`h-full rounded-full ${c.text.replace('text-', 'bg-')} transition-all duration-500`}
+                      className={`h-full rounded-full ${c.dot} transition-all duration-500`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>

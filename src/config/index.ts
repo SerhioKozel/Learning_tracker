@@ -22,12 +22,13 @@ export const boardColorMap: Record<string, {
   border: string;
   gradient: string;
   ring: string;
+  dot: string;
 }> = {
-  sky:     { bg: 'bg-sky-500/15',     text: 'text-sky-300',     border: 'border-sky-500/30',     gradient: 'from-sky-500/20 to-sky-500/0',     ring: 'ring-sky-500/30' },
-  teal:    { bg: 'bg-teal-500/15',    text: 'text-teal-300',    border: 'border-teal-500/30',    gradient: 'from-teal-500/20 to-teal-500/0',    ring: 'ring-teal-500/30' },
-  amber:   { bg: 'bg-amber-500/15',   text: 'text-amber-300',   border: 'border-amber-500/30',   gradient: 'from-amber-500/20 to-amber-500/0',   ring: 'ring-amber-500/30' },
-  rose:    { bg: 'bg-rose-500/15',    text: 'text-rose-300',    border: 'border-rose-500/30',    gradient: 'from-rose-500/20 to-rose-500/0',    ring: 'ring-rose-500/30' },
-  emerald: { bg: 'bg-emerald-500/15', text: 'text-emerald-300', border: 'border-emerald-500/30', gradient: 'from-emerald-500/20 to-emerald-500/0', ring: 'ring-emerald-500/30' },
+  sky:     { bg: 'bg-sky-500/15',     text: 'text-sky-300',     border: 'border-sky-500/30',     gradient: 'from-sky-500/20 to-sky-500/0',     ring: 'ring-sky-500/30',     dot: 'bg-sky-400' },
+  teal:    { bg: 'bg-teal-500/15',    text: 'text-teal-300',    border: 'border-teal-500/30',    gradient: 'from-teal-500/20 to-teal-500/0',    ring: 'ring-teal-500/30',    dot: 'bg-teal-400' },
+  amber:   { bg: 'bg-amber-500/15',   text: 'text-amber-300',   border: 'border-amber-500/30',   gradient: 'from-amber-500/20 to-amber-500/0',   ring: 'ring-amber-500/30',   dot: 'bg-amber-400' },
+  rose:    { bg: 'bg-rose-500/15',    text: 'text-rose-300',    border: 'border-rose-500/30',    gradient: 'from-rose-500/20 to-rose-500/0',    ring: 'ring-rose-500/30',    dot: 'bg-rose-400' },
+  emerald: { bg: 'bg-emerald-500/15', text: 'text-emerald-300', border: 'border-emerald-500/30', gradient: 'from-emerald-500/20 to-emerald-500/0', ring: 'ring-emerald-500/30', dot: 'bg-emerald-400' },
 };
 
 export const BOARD_COLOR_OPTIONS: { value: 'sky' | 'teal' | 'amber' | 'rose' | 'emerald'; label: string; preview: string }[] = [

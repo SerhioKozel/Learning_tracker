@@ -9,6 +9,10 @@
 
 ```
 learning-tracker/
+├── README.md                # Project overview, quick start, doc index
+├── CHANGELOG.md             # Release history
+├── SECURITY.md               # Security model and deployment guidance — canonical copy; GitHub/GitLab auto-detect this at repo root
+├── CONTRIBUTING.md           # How to work on this codebase — canonical copy; auto-detected at repo root
 ├── .env.example            # Required env vars — copy to .env to run locally
 ├── .env                    # Local secrets — git-ignored, never commit
 ├── index.html              # Vite HTML entry point
@@ -23,15 +27,14 @@ learning-tracker/
 ├── supabase/
 │   └── migrations/         # SQL migration files (run these in Supabase SQL editor)
 │       └── *.sql
-├── docs/                   # All project documentation
+├── docs/                   # All other project documentation
 │   ├── ARCHITECTURE.md     # System design, component model, data flow
 │   ├── BACKLOG.md          # Prioritised task list
-│   ├── CONTRIBUTING.md     # How to work on this codebase
 │   ├── DECISION-LOG.md     # Why specific choices were made
 │   ├── DESIGN-SYSTEM.md    # Colors, typography, components, tokens
+│   ├── DEVELOPMENT.md      # Local setup, scripts, contribution workflow
 │   ├── PROJECT-STRUCTURE.md  ← you are here
-│   ├── ROADMAP.md          # What's built and what's planned
-│   └── SECURITY.md         # Security model and deployment guidance
+│   └── ROADMAP.md          # What's built and what's planned
 └── src/                    # Application source (see below)
 ```
 
@@ -59,8 +62,9 @@ src/
 ├── utils/
 │   ├── analytics.ts        # generateHeatmap, generateWeeklyActivity, computeStreak,
 │   │                       # generateCalendarEvents — all pure functions, no side effects
-│   ├── date.ts             # timeAgo(date), formatDate(date)
-│   └── id.ts               # generateId(prefix) — crypto.randomUUID based
+│   ├── date.ts             # timeAgo(date)
+│   ├── id.ts               # generateId(prefix) — crypto.randomUUID based
+│   └── status.ts           # computeStatusChange(topic, newStatus) — shared by drawer and DnD
 │
 ├── lib/
 │   └── supabase.ts         # Supabase client singleton (auth.persistSession: false)
@@ -75,15 +79,29 @@ src/
     ├── ui/                 # Reusable UI primitives (no business logic)
     │   └── ConfirmDialog.tsx
     │
-    ├── Sidebar.tsx         # Exports `type View` — the canonical view union
+    ├── board/              # BoardView's sub-components (BL-014)
+    │   ├── BoardFilters.tsx    # Search input + difficulty/type filter dropdown
+    │   ├── CardContent.tsx     # Shared card body — used by DraggableCard and the drag overlay
+    │   ├── DraggableCard.tsx   # useDraggable wrapper around CardContent
+    │   └── DroppableColumn.tsx # useDroppable wrapper for a Kanban column
+    │
+    ├── drawer/             # TopicDrawer's sub-components (BL-013)
+    │   ├── TopicHeader.tsx     # Title, description, status pills, duplicate/delete/close actions
+    │   ├── TopicProperties.tsx # Type, difficulty, progress slider, review date, tags
+    │   ├── TopicChecklist.tsx  # Checklist items — add, toggle, delete
+    │   ├── TopicResources.tsx  # Resource links — add, toggle done, delete
+    │   ├── TopicNotes.tsx      # Notes textarea, auto-saved on blur
+    │   └── TopicHistory.tsx    # Read-only history entry list
+    │
+    ├── Sidebar.tsx         # Navigation via <NavLink>, board list with progress, filter input
     ├── Dashboard.tsx       # Real streak, real activity — no hardcoded values
     ├── BoardsList.tsx      # Board CRUD + create/edit modal + confirm delete
-    ├── BoardView.tsx       # Kanban columns + inline topic creation + confirm delete
-    ├── TopicDrawer.tsx     # Full topic panel: all fields, checklist, resources, history
+    ├── BoardView.tsx       # Kanban columns + DnD (@dnd-kit) — thin orchestrator delegating to board/
+    ├── TopicDrawer.tsx     # Topic panel layout — thin orchestrator delegating to drawer/
     ├── Statistics.tsx      # Charts and aggregate metrics
     ├── CalendarView.tsx    # Monthly calendar with review date events
     ├── SettingsView.tsx    # Theme, export/import, reset
-    └── DesignSystem.tsx    # Internal design reference — not linked in production nav
+    └── DesignSystem.tsx    # Internal design reference — no route, unreachable from the UI, kept for documentation only
 ```
 
 ---
@@ -119,8 +137,8 @@ Same principle — previously duplicated in `Dashboard.tsx` and `Statistics.tsx`
 | `src/context/` | No React Context needed — data passes as props from App.tsx |
 | `src/store/` | No Zustand/Redux — `useDataStore` is sufficient |
 | `src/api/` | No API abstraction layer — Supabase client is the API |
-| `src/pages/` | No router — views are components rendered conditionally in App.tsx |
-| `src/tests/` | No automated tests yet — see BACKLOG.md BL-013 (planned) |
+| `src/pages/` | Routes are declared inline in `App.tsx` via React Router's `<Routes>/<Route>` — not split into a separate `pages/` directory. Each route element is a thin wrapper around an existing view component |
+| `src/tests/` | No automated tests yet. Not currently tracked as a numbered backlog item — add one to `BACKLOG.md` if this becomes a priority |
 | `src/services/` | No service layer — thin enough to not need one |
 
 ---

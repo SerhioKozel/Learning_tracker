@@ -45,7 +45,7 @@ Open the Supabase SQL editor and run the contents of:
 supabase/migrations/
 ```
 
-Run files in order (they are timestamped). Each file is idempotent — safe to re-run.
+Run files in order (they are timestamped). Each file currently in this folder is safe to re-run — schema files use `CREATE TABLE IF NOT EXISTS`, and the realtime migration guards against re-adding a table already in the publication. If you add a new migration, keep this guarantee: prefer `IF NOT EXISTS` / `DO` guards over unconditional `DROP TABLE` or unguarded `ALTER`, since this project has no formal migration-history tracking (no `supabase_migrations.schema_migrations` table) — there's nothing stopping a file from being run twice by accident.
 
 Alternatively, if you have the Supabase CLI:
 

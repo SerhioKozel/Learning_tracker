@@ -125,7 +125,7 @@ export default function Sidebar({ boards, loading, realtimeStatus }: SidebarProp
                   {({ isActive }) => (
                     <>
                       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${c.bg} ${c.border} border`}>
-                        <span className={`h-2 w-2 rounded-full ${c.text.replace('text-', 'bg-')}`} />
+                        <span className={`h-2 w-2 rounded-full ${c.dot}`} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className={`truncate text-xs font-medium ${isActive ? 'text-white' : 'text-ink-200'}`}>
@@ -134,7 +134,7 @@ export default function Sidebar({ boards, loading, realtimeStatus }: SidebarProp
                         <div className="mt-1 flex items-center gap-2">
                           <div className="h-1 flex-1 overflow-hidden rounded-full bg-ink-700">
                             <div
-                              className={`h-full rounded-full ${c.text.replace('text-', 'bg-')}`}
+                              className={`h-full rounded-full ${c.dot}`}
                               style={{ width: `${pct}%` }}
                             />
                           </div>

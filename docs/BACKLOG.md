@@ -29,12 +29,14 @@
 | BL-002 | Дублирование топика — `duplicateTopic` + Copy-кнопка |
 | BL-003 | Фильтры в BoardView — по difficulty и type |
 | BL-004 | Описание топика редактируемо — textarea + onBlur |
-| BL-005 | React Router v6 — URL-навигация, back button, `?topic=` query param |
+| BL-005 | React Router v7 — URL-навигация, back button, `?topic=` query param |
 | BL-006 | Lazy loading — Statistics, CalendarView, SettingsView |
 | BL-007 | Inline редактирование заголовка в TopicDrawer |
 | BL-008 | Empty state — пошаговый онбординг |
 | BL-009 | Drag-and-drop между колонками — `@dnd-kit`, оптимистичный статус, DragOverlay |
 | BL-010 | Supabase Realtime — multi-tab sync, индикатор соединения |
+| BL-013 | Разбить TopicDrawer — вынесен в `src/components/drawer/`: `TopicHeader`, `TopicProperties`, `TopicChecklist`, `TopicResources`, `TopicNotes`, `TopicHistory`. Сам `TopicDrawer.tsx` — тонкий layout-компонент |
+| BL-014 | Разбить BoardView — вынесен в `src/components/board/`: `DraggableCard`, `DroppableColumn`, `CardContent`, `BoardFilters` |
 
 ---
 
@@ -63,18 +65,15 @@
 
 ## 🟡 Технический долг
 
-### BL-013 — Разбить TopicDrawer (618 строк)
-
-**Причина:** Компонент слишком большой — Properties, Checklist, Resources, Notes, History — каждая секция достаточно крупная для отдельного компонента.  
-**Стратегия:** Выделить `TopicProperties.tsx`, `TopicChecklist.tsx`, `TopicResources.tsx` — топик и колбэки прокидываются пропсами. Сам `TopicDrawer` остаётся тонким layout-компонентом.  
-**Риск:** Низкий — только разбивка, логика не меняется.
+_Пусто — предыдущие пункты (BL-013, BL-014) выполнены, см. раздел «✅ Выполнено» выше._
 
 ---
 
-### BL-014 — Разбить BoardView (528 строк)
+## 📝 Зафиксировано, не трогать сейчас
 
-**Причина:** `DraggableCard`, `CardContent`, `DroppableColumn` уже выделены как внутренние компоненты — можно перенести в `src/components/board/`.  
-**Стратегия:** `src/components/board/DraggableCard.tsx`, `DroppableColumn.tsx`, `BoardHeader.tsx`, `NewTopicInput.tsx`.  
-**Риск:** Низкий.
+Найдено при аудите — не баги, но стоит иметь в виду при следующей работе с этими типами:
+
+- ~~**`CalendarEvent.type`** объявлял `'review' | 'deadline' | 'completed'`, но `generateCalendarEvents()` генерирует только `'review'` и `'completed'` — вариант `'deadline'` был недостижим и отображался в легенде календаря как никогда не наступающее событие.~~ **Закрыто** — `'deadline'` удалён из типа, `eventTypeConfig` и импортов `CalendarView.tsx`. `AlertCircle` также удалён как ставший мёртвым импорт.
+- **`HistoryEntry.action`** (`src/types/index.ts`) объявляет `'created' | 'updated' | 'moved' | 'progress'`, но код создаёт записи истории только с `'created'` (при создании/дублировании топика) и `'moved'` (при смене статуса). Варианты `'updated'` и `'progress'` никогда не используются — возможно, задумывалась более детальная история изменений (правки полей, прогресса), но её решили не делать. Та же логика: решить явно, не убирать молча.
 
 ---

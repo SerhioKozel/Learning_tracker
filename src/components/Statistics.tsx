@@ -1,5 +1,5 @@
 import { TrendingUp, Clock, Target, Award, Calendar, ArrowUpRight, Layers } from 'lucide-react';
-import { boardColorMap, statusConfig, topicTypeConfig, HEATMAP_COLORS } from '../config';
+import { boardColorMap, statusConfig, topicTypeConfig, HEATMAP_COLORS, STATUS_ORDER } from '../config';
 import { generateHeatmap, generateWeeklyActivity } from '../utils/analytics';
 import type { Board, Topic } from '../types';
 
@@ -30,7 +30,7 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
     pct: b.topicCount > 0 ? Math.round((b.completedCount / b.topicCount) * 100) : 0,
   }));
 
-  const statusDistribution = (['to_learn', 'learning', 'practice', 'review', 'completed'] as const).map((status) => ({
+  const statusDistribution = STATUS_ORDER.map((status) => ({
     status,
     count: topics.filter((t) => t.status === status).length,
   }));
@@ -169,7 +169,7 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
                   <span className="w-32 shrink-0 truncate text-sm text-ink-200">{b.title}</span>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-ink-700">
                     <div
-                      className={`h-full rounded-full ${c.text.replace('text-', 'bg-')} transition-all duration-700`}
+                      className={`h-full rounded-full ${c.dot} transition-all duration-700`}
                       style={{ width: `${b.pct}%` }}
                     />
                   </div>

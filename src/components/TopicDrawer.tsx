@@ -7,8 +7,7 @@ import TopicChecklist from './drawer/TopicChecklist';
 import TopicResources from './drawer/TopicResources';
 import TopicNotes from './drawer/TopicNotes';
 import TopicHistory from './drawer/TopicHistory';
-import { statusConfig } from '../config';
-import { generateId } from '../utils/id';
+import { computeStatusChange } from '../utils/status';
 import type { Status, TopicType, Difficulty, Resource, HistoryEntry, Topic, Board } from '../types';
 
 interface TopicDrawerProps {
@@ -78,16 +77,10 @@ export default function TopicDrawer({
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   const handleStatusChange = (newStatus: Status) => {
-    const newProgress = newStatus === 'completed' ? 100 : newStatus === 'to_learn' ? 0 : topic.progress;
-    const historyEntry: HistoryEntry = {
-      id: generateId('h'),
-      action: 'moved',
-      detail: `${statusConfig[topic.status].label} → ${statusConfig[newStatus].label}`,
-      date: new Date().toISOString(),
-    };
+    const { progress, historyEntry } = computeStatusChange(topic, newStatus);
     onUpdate(topic.id, {
       status: newStatus,
-      progress: newProgress,
+      progress,
       history: [...topic.history, historyEntry],
     });
   };

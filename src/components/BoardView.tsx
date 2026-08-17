@@ -10,7 +10,7 @@ import {
   type DragOverEvent,
 } from '@dnd-kit/core';
 import { Plus, ChevronLeft, X, Layout } from 'lucide-react';
-import { statusConfig, boardColorMap, BOARD_ICONS } from '../config';
+import { statusConfig, boardColorMap, BOARD_ICONS, STATUS_ORDER as COLUMN_ORDER } from '../config';
 import ConfirmDialog from './ui/ConfirmDialog';
 import DraggableCard from './board/DraggableCard';
 import DroppableColumn from './board/DroppableColumn';
@@ -28,10 +28,6 @@ interface BoardViewProps {
   onDeleteTopic: (id: string) => Promise<void>;
   onUpdateTopicStatus: (id: string, status: Status) => Promise<void>;
 }
-
-const COLUMN_ORDER: Status[] = ['to_learn', 'learning', 'practice', 'review', 'completed'];
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function BoardView({
   boardId, boards, topics, onSelectTopic, onBack,
@@ -156,7 +152,7 @@ export default function BoardView({
           <div className="flex items-center gap-2">
             <span className="text-xs text-ink-500">Progress</span>
             <div className="h-1.5 w-32 overflow-hidden rounded-full bg-ink-700">
-              <div className={`h-full rounded-full ${c.text.replace('text-', 'bg-')}`} style={{ width: `${pct}%` }} />
+              <div className={`h-full rounded-full ${c.dot}`} style={{ width: `${pct}%` }} />
             </div>
             <span className="text-xs font-semibold tabular-nums text-always-white">{pct}%</span>
           </div>

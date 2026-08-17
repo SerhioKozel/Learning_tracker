@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { timeAgo } from '../utils/date';
 import { generateId } from '../utils/id';
+import { computeStatusChange } from '../utils/status';
 import type {
   Board,
   Topic,
@@ -79,6 +80,7 @@ function mapTopic(raw: RawTopic): Topic {
     notes: raw.notes ?? '',
     history: raw.history ?? [],
     updatedAt: timeAgo(raw.updated_at),
+    updatedAtRaw: raw.updated_at,
     createdAt: raw.created_at.slice(0, 10),
   };
 }
@@ -306,28 +308,23 @@ export function useDataStore() {
     const topic = topics.find((t) => t.id === id);
     if (!topic || topic.status === status) return;
 
-    const historyEntry: HistoryEntry = {
-      id: generateId('h'),
-      action: 'moved',
-      detail: `${topic.status.replace('_', ' ')} → ${status.replace('_', ' ')}`,
-      date: new Date().toISOString(),
-    };
+    const { progress, historyEntry } = computeStatusChange(topic, status);
     const newHistory = [...topic.history, historyEntry].slice(-50);
 
     // Apply optimistically
     setTopics((prev) => prev.map((t) =>
-      t.id === id ? { ...t, status, history: newHistory } : t,
+      t.id === id ? { ...t, status, progress, history: newHistory } : t,
     ));
 
     const { error: err } = await supabase
       .from('topics')
-      .update({ status, history: newHistory, updated_at: new Date().toISOString() })
+      .update({ status, progress, history: newHistory, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (err) {
       setError(err.message);
       setTopics((prev) => prev.map((t) =>
-        t.id === id ? { ...t, status: topic.status, history: topic.history } : t,
+        t.id === id ? { ...t, status: topic.status, progress: topic.progress, history: topic.history } : t,
       ));
     }
   }, [topics]);
@@ -448,23 +445,31 @@ export function useDataStore() {
     try {
       const parsed = JSON.parse(json);
       if (!parsed.boards || !parsed.topics) return false;
-      for (const b of parsed.boards) {
-        await supabase.from('boards').upsert({
+
+      // Boards must be upserted before topics — topics.board_id FK references boards(id)
+      const { error: boardsErr } = await supabase.from('boards').upsert(
+        parsed.boards.map((b: Record<string, unknown>) => ({
           id: b.id, title: b.title, description: b.description ?? '',
           color: b.color ?? 'sky', icon: b.icon ?? 'Layout',
-        });
+        })),
+      );
+      if (boardsErr) { setError(boardsErr.message); return false; }
+
+      if (parsed.topics.length > 0) {
+        const { error: topicsErr } = await supabase.from('topics').upsert(
+          parsed.topics.map((t: Record<string, unknown>) => ({
+            id: t.id, title: t.title, description: t.description ?? '',
+            status: t.status ?? 'to_learn', board_id: t.boardId ?? t.board_id,
+            type: t.type ?? 'learning', difficulty: t.difficulty ?? 'medium',
+            progress: t.progress ?? 0, tags: t.tags ?? [],
+            review_date: t.reviewDate ?? t.review_date ?? null,
+            checklist: t.checklist ?? [], resources: t.resources ?? [],
+            notes: t.notes ?? '', history: t.history ?? [],
+          })),
+        );
+        if (topicsErr) { setError(topicsErr.message); return false; }
       }
-      for (const t of parsed.topics) {
-        await supabase.from('topics').upsert({
-          id: t.id, title: t.title, description: t.description ?? '',
-          status: t.status ?? 'to_learn', board_id: t.boardId ?? t.board_id,
-          type: t.type ?? 'learning', difficulty: t.difficulty ?? 'medium',
-          progress: t.progress ?? 0, tags: t.tags ?? [],
-          review_date: t.reviewDate ?? t.review_date ?? null,
-          checklist: t.checklist ?? [], resources: t.resources ?? [],
-          notes: t.notes ?? '', history: t.history ?? [],
-        });
-      }
+
       await fetchAll();
       return true;
     } catch {

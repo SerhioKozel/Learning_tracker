@@ -236,7 +236,7 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
                   <p className="mt-1 text-xs text-ink-500 line-clamp-1">{b.description}</p>
                   <div className="mt-3 flex items-center gap-2">
                     <div className="h-1 flex-1 overflow-hidden rounded-full bg-ink-700">
-                      <div className={`h-full rounded-full ${c.text.replace('text-', 'bg-')}`} style={{ width: `${pct}%` }} />
+                      <div className={`h-full rounded-full ${c.dot}`} style={{ width: `${pct}%` }} />
                     </div>
                     <span className="text-[10px] tabular-nums text-ink-500">{pct}%</span>
                   </div>

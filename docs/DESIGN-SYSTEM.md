@@ -154,7 +154,7 @@ statusConfig[status] → { label, bg, text, border, dot }
 Each board has a color that controls its accent across the entire UI. Accessed via `boardColorMap` from `src/config/index.ts`:
 
 ```typescript
-boardColorMap[board.color] → { bg, text, border, gradient, ring }
+boardColorMap[board.color] → { bg, text, border, gradient, ring, dot }
 ```
 
 | Color | Value |
@@ -237,4 +237,4 @@ Standard Tailwind 4px base unit. Common patterns:
 
 ## Design System Reference Page
 
-The `DesignSystem.tsx` component renders a live preview of all tokens and components. It is accessible in development at the app URL — it is not linked from the sidebar navigation in production.
+The `DesignSystem.tsx` component renders a live preview of all tokens and components. It is kept in the codebase as living reference documentation but is intentionally not wired to any route — it is unreachable from the running app in both development and production. To view it, temporarily add a `<Route>` for it in `App.tsx` locally; do not merge that route.

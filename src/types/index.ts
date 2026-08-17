@@ -51,6 +51,7 @@ export interface Topic {
   notes: string;
   history: HistoryEntry[];
   updatedAt: string;
+  updatedAtRaw: string;
   createdAt: string;
 }
 
@@ -69,7 +70,7 @@ export interface Board {
 
 export interface CalendarEvent {
   date: string;
-  type: 'review' | 'deadline' | 'completed';
+  type: 'review' | 'completed';
   topicId: string;
   title: string;
 }

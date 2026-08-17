@@ -56,7 +56,9 @@ New decisions are added here when they are made, not retroactively.
 - ❌ Browser back/forward exits the app instead of going back within it
 - ❌ Deep-linking to a board or topic is not possible
 
-**Migration path:** React Router v6. The `View` string union maps 1:1 to route paths (`/`, `/boards`, `/boards/:id`, `/stats`, `/calendar`, `/settings`). The component tree does not change. Tracked in BACKLOG.md BL-005.
+**Migration path (as planned at the time):** React Router v6. The `View` string union maps 1:1 to route paths (`/`, `/boards`, `/boards/:id`, `/stats`, `/calendar`, `/settings`). The component tree does not change. Tracked in BACKLOG.md BL-005.
+
+**Superseded by:** DL-010 below — the migration was carried out with React Router v7 (declarative mode), not v6 as originally forecast here; the API used is unchanged between the two for this app's needs.
 
 ---
 
@@ -149,20 +151,21 @@ All 9 component files that imported from `mockData.ts` were updated. The file wa
 
 ---
 
-## DL-010 — React Router v6 для URL-навигации
+## DL-010 — React Router v7 для URL-навигации
 
 **Date:** 2026-08 | **Status:** Accepted
 
 **Context:** Приложение использовало `useState<View>` для навигации между экранами. Кнопка Back в браузере выходила из приложения, deep linking был невозможен.
 
-**Decision:** `react-router-dom` v6 с `BrowserRouter`. Маршруты: `/`, `/boards`, `/boards/:boardId`, `/stats`, `/calendar`, `/settings`. Topic drawer — query param `?topic=<id>` поверх любого маршрута.
+**Decision:** `react-router-dom` v7 (declarative mode — `BrowserRouter`, `Routes`, `Route`; без Remix-style loaders/actions, которые v7 добавляет опционально). Маршруты: `/`, `/boards`, `/boards/:boardId`, `/stats`, `/calendar`, `/settings`. Topic drawer — query param `?topic=<id>` поверх любого маршрута.
 
 **Trade-offs:**
 - ✅ Browser back/forward работает корректно
 - ✅ Deep linking — можно поделиться ссылкой на конкретную доску или топик
 - ✅ Sidebar использует `<NavLink>` — active state из URL, не из state
 - ✅ `View` type и `onView` callback полностью удалены — меньше prop drilling
-- ❌ +18KB к бандлу (react-router-dom gzip)
+- ✅ API declarative-режима идентичен v6 — миграция с v6 на v7 не потребовала бы изменений в этом приложении
+- ❌ +18KB к бандлу (react-router-dom gzip, измерено при первоначальном внедрении v6; не переизмерялось после обновления до v7)
 - ❌ Требует настройки сервера для SPA fallback при деплое (все пути → index.html)
 
 **Паттерн с query param для drawer:** `?topic=<id>` вместо вложенного маршрута. Это позволяет открывать drawer поверх любого маршрута и сохранять его состояние при навигации. Альтернатива — `/boards/:boardId/topics/:topicId` — создала бы сложный вложенный layout.
@@ -188,7 +191,7 @@ All 9 component files that imported from `mockData.ts` were updated. The file wa
 - ❌ Каждое событие = лишний round-trip к Supabase
 - ❌ При высокой частоте событий (batch import) — много лишних запросов
 
-**Mitigation для batch:** `importData` уже вызывает `fetchAll()` в конце, а не на каждый upsert, поэтому Realtime события во время импорта схлопнутся в один финальный fetchAll.
+**Mitigation для batch:** `importData` теперь делает два батч-вызова (`upsert([...])` для досок, затем для топиков) вместо отдельного `upsert()` на каждую запись. Финальный `fetchAll()` — канонический момент синхронизации UI после импорта. Realtime-подписка может дополнительно инициировать `fetchAll()` при получении WAL-событий от батч-вставок — debounce-механизма нет, и это нормально для single-user инструмента с редкими импортами.
 
 ---
 
@@ -207,3 +210,38 @@ All 9 component files that imported from `mockData.ts` were updated. The file wa
 **Activation constraint:** `PointerSensor` с `distance: 8` — предотвращает случайный drag при клике на карточку для открытия drawer.
 
 **Оптимистичность:** `updateTopicStatus` применяет новый статус к локальному state немедленно. При ошибке Supabase — rollback к исходному статусу. `fetchAll()` не вызывается — Realtime подхватит изменение и обновит при необходимости.
+
+---
+
+## DL-013 — `Topic.updatedAtRaw` добавлен для аналитики
+
+**Date:** 2026-08 | **Status:** Accepted
+
+**Context:** `computeStreak`, `generateWeeklyActivity` и `generateHeatmap` (`src/utils/analytics.ts`) вызывали `new Date(t.updatedAt)`, ожидая ISO-строку. Но `Topic.updatedAt` — это результат `timeAgo()` (`"2h ago"`, `"just now"`), а не ISO-дата. `new Date("just now")` возвращает `Invalid Date`. Итог: стрик всегда показывал `{ current: 0, best: 0 }`, недельная активность на Dashboard и Statistics всегда была нулевой по всем 12 неделям, heatmap оживал только за счёт `createdAt` (даты создания), а не реальной активности.
+
+Баг существовал с момента, когда `TASK-17`/"Real streak" были помечены выполненными в `BACKLOG.md` — сами функции действительно читали реальные данные топиков, но никогда не могли распарсить дату, поэтому фича молча не работала ни разу с момента внедрения.
+
+**Decision:** Добавить `Topic.updatedAtRaw: string` — точная копия уже существующего паттерна `Board.updatedAtRaw` (см. `BoardsList.tsx`, где сортировка досок уже намеренно использует `updatedAtRaw` вместо форматированной строки, с комментарием "reliable, no string parsing" — тот же урок не был перенесён на `Topic`). `mapTopic()` заполняет поле из `raw.updated_at`. Три analytics-функции переключены на `t.updatedAtRaw`.
+
+**Trade-offs:**
+- ✅ Стрик, недельная активность и heatmap теперь отражают реальные данные
+- ✅ Паттерн идентичен уже принятому для `Board` — не новая абстракция
+- ❌ Небольшое увеличение размера объекта `Topic` (одно доп. string-поле)
+
+**Note:** Оптимистичные мутации (`toggleChecklistItem`, `updateTopicStatus` и др.) не обновляют `updatedAtRaw` локально при optimistic update — то же самое уже было верно и для `updatedAt` до этого фикса. Небольшое расхождение до следующего `fetchAll()`/Realtime-обновления, приемлемо в рамках существующего дизайна (DL-007).
+
+---
+
+## DL-014 — `computeStatusChange()` — единая логика смены статуса топика
+
+**Date:** 2026-08 | **Status:** Accepted
+
+**Context:** Статус топика можно сменить двумя путями: через выпадающий список в `TopicDrawer` и через drag-and-drop карточки между колонками (`useDataStore.updateTopicStatus`). Обе реализации независимо дублировали одну и ту же логику — но **разошлись** в поведении: смена через дровер выставляла `progress: 100` при переходе в `completed` и `progress: 0` при переходе в `to_learn`; DnD-путь прогресс вообще не трогал. Итог — топик мог оказаться в статусе `completed` с `progress: 45%`, если его туда перетащили, а не выбрали статус вручную. Записи истории тоже форматировались по-разному (человекочитаемые лейблы vs сырой `status.replace('_', ' ')`).
+
+**Decision:** Общая логика вынесена в чистую функцию `computeStatusChange(topic, newStatus) → { progress, historyEntry }` (`src/utils/status.ts`). Оба места (`TopicDrawer.tsx: handleStatusChange`, `useDataStore.ts: updateTopicStatus`) вызывают её вместо собственной копии логики.
+
+**Trade-offs:**
+- ✅ Оба пути смены статуса теперь гарантированно ведут себя одинаково
+- ✅ Единая точка форматирования текста истории
+- ✅ ~15 строк дублирования устранено
+- ❌ Ещё один файл в `utils/` (минимальная цена за корректность)

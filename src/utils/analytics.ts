@@ -11,7 +11,7 @@ export function generateHeatmap(topics: Topic[]): number[] {
   const now = new Date();
 
   for (const t of topics) {
-    const d = new Date(t.updatedAt);
+    const d = new Date(t.updatedAtRaw);
     const daysAgo = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
     const idx = HEATMAP_CELLS - 1 - daysAgo;
     if (idx >= 0 && idx < HEATMAP_CELLS) {
@@ -45,7 +45,7 @@ export function generateWeeklyActivity(topics: Topic[]): { week: string; count: 
     weekEnd.setDate(weekStart.getDate() + 7);
 
     const count = topics.filter((t) => {
-      const d = new Date(t.updatedAt);
+      const d = new Date(t.updatedAtRaw);
       return d >= weekStart && d < weekEnd;
     }).length;
 
@@ -67,7 +67,7 @@ export function computeStreak(topics: Topic[]): { current: number; best: number 
   // Collect unique active calendar days (YYYY-MM-DD) from updatedAt
   const activeDays = new Set<string>();
   for (const t of topics) {
-    const d = new Date(t.updatedAt);
+    const d = new Date(t.updatedAtRaw);
     if (!isNaN(d.getTime())) {
       activeDays.add(d.toISOString().slice(0, 10));
     }
