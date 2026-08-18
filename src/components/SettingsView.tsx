@@ -10,7 +10,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Database,
-  Github,
+  Code2,
   Lock,
   Cloud,
 } from 'lucide-react';
@@ -223,7 +223,7 @@ export default function SettingsView({ theme, onToggleTheme, boards, topics, onE
             <span className="text-sm font-medium text-ink-100">Cloud-synced · Single user</span>
           </div>
           <div className="flex items-center justify-between p-4">
-            <span className="flex items-center gap-1.5 text-sm text-ink-500"><Github className="h-3.5 w-3.5" /> Source</span>
+            <span className="flex items-center gap-1.5 text-sm text-ink-500"><Code2 className="h-3.5 w-3.5" /> Source</span>
             <span className="text-sm font-medium text-ink-100">Open source</span>
           </div>
         </div>

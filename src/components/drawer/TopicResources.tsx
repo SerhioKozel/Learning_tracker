@@ -1,12 +1,12 @@
 import {
   CheckSquare, Square, ExternalLink, Trash2,
-  PlayCircle, FileText, BookOpen, BookMarked, Github, Link2,
+  PlayCircle, FileText, BookOpen, BookMarked, Code2, Link2,
 } from 'lucide-react';
 import { resourceTypeConfig } from '../../config';
 import type { Resource, Topic } from '../../types';
 
 const resourceIcons: Record<string, typeof PlayCircle> = {
-  Link2, BookOpen, PlayCircle, BookMarked, Github,
+  Link2, BookOpen, PlayCircle, BookMarked, Code2,
 };
 
 interface NewResourceState {

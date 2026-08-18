@@ -66,7 +66,7 @@ export const topicTypeConfig: Record<TopicType, { icon: string; label: string; e
   video:         { icon: 'PlayCircle',    label: 'Video',         emoji: '🎥' },
   course:        { icon: 'GraduationCap', label: 'Course',        emoji: '🎓' },
   documentation: { icon: 'BookMarked',    label: 'Docs',          emoji: '📄' },
-  repository:    { icon: 'Github',        label: 'Repo',          emoji: '📦' },
+  repository:    { icon: 'Code2',         label: 'Repo',          emoji: '📦' },
   interview:     { icon: 'MessageSquare', label: 'Interview',     emoji: '💬' },
   certification: { icon: 'Award',         label: 'Cert',          emoji: '🏆' },
   project:       { icon: 'FolderGit2',    label: 'Project',       emoji: '🔧' },
@@ -88,7 +88,7 @@ export const resourceTypeConfig: Record<Resource['type'], { icon: string; label:
   book:          { icon: 'BookOpen',  label: 'Book' },
   video:         { icon: 'PlayCircle',label: 'Video' },
   documentation: { icon: 'BookMarked',label: 'Docs' },
-  github:        { icon: 'Github',    label: 'Repo' },
+  github:        { icon: 'Code2',     label: 'Repo' },
 };
 
 // ─── History actions ──────────────────────────────────────────────────────────
