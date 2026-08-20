@@ -1,5 +1,5 @@
 import { X, Trash2, Copy } from 'lucide-react';
-import { statusConfig, boardColorMap, STATUS_ORDER } from '../../config';
+import { statusConfig, boardColorMap, VISIBLE_STATUS_ORDER } from '../../config';
 import type { Status, Topic, Board } from '../../types';
 
 interface TopicHeaderProps {
@@ -102,7 +102,7 @@ export default function TopicHeader({
 
       {/* Status pills */}
       <div className="mt-4 flex flex-wrap items-center gap-1.5">
-        {STATUS_ORDER.map((st) => {
+        {VISIBLE_STATUS_ORDER.map((st) => {
           const cfg = statusConfig[st];
           const active = topic.status === st;
           return (

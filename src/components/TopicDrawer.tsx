@@ -17,7 +17,7 @@ interface TopicDrawerProps {
   onUpdate: (id: string, data: Partial<{
     title: string; description: string; status: Status; type: TopicType;
     difficulty: Difficulty; progress: number; tags: string[];
-    reviewDate: string | null; checklist: Topic['checklist'];
+    deadlineDate: string | null; checklist: Topic['checklist'];
     resources: Resource[]; notes: string; history: HistoryEntry[];
   }>) => Promise<void>;
   onAddChecklistItem: (topicId: string, text: string) => Promise<void>;
@@ -39,8 +39,6 @@ export default function TopicDrawer({
   onDuplicateTopic, onDeleteTopic,
 }: TopicDrawerProps) {
   // ─── Local state ────────────────────────────────────────────────────────────
-  // Only fields that need debounced/deferred saves or pure UI state live here.
-  // Everything else reads directly from the topic prop and writes through immediately.
 
   const [title, setTitle] = useState(topic?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
@@ -154,7 +152,7 @@ export default function TopicDrawer({
             onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty })}
             onProgressChange={setLocalProgress}
             onProgressCommit={(value) => onUpdate(topic.id, { progress: value })}
-            onReviewDateChange={(value) => onUpdate(topic.id, { reviewDate: value || null })}
+            onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null })}
             onNewTagChange={setNewTag}
             onAddTag={() => {
               const tag = newTag.trim().toLowerCase();
@@ -167,27 +165,29 @@ export default function TopicDrawer({
 
           {DIVIDER}
 
-          <TopicChecklist
-            topic={topic}
-            newChecklistText={newChecklistText}
-            onNewTextChange={setNewChecklistText}
-            onToggle={(itemId) => onToggleChecklistItem(topic.id, itemId)}
-            onDelete={(itemId) => onDeleteChecklistItem(topic.id, itemId)}
-            onAdd={handleAddChecklist}
-          />
+          {/* Checklist — hidden in MVP UI, code preserved for future use */}
+          <div className="hidden">
+            <TopicChecklist
+              topic={topic}
+              newChecklistText={newChecklistText}
+              onNewTextChange={setNewChecklistText}
+              onToggle={(itemId) => onToggleChecklistItem(topic.id, itemId)}
+              onDelete={(itemId) => onDeleteChecklistItem(topic.id, itemId)}
+              onAdd={handleAddChecklist}
+            />
+          </div>
 
-          {DIVIDER}
-
-          <TopicResources
-            topic={topic}
-            newResource={newResource}
-            onNewResourceChange={setNewResource}
-            onToggle={(resourceId) => onToggleResource(topic.id, resourceId)}
-            onDelete={(resourceId) => onDeleteResource(topic.id, resourceId)}
-            onAdd={handleAddResource}
-          />
-
-          {DIVIDER}
+          {/* Resources — hidden in MVP UI, code preserved for future use */}
+          <div className="hidden">
+            <TopicResources
+              topic={topic}
+              newResource={newResource}
+              onNewResourceChange={setNewResource}
+              onToggle={(resourceId) => onToggleResource(topic.id, resourceId)}
+              onDelete={(resourceId) => onDeleteResource(topic.id, resourceId)}
+              onAdd={handleAddResource}
+            />
+          </div>
 
           <TopicNotes
             notes={notes}

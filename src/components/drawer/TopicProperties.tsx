@@ -11,7 +11,7 @@ interface TopicPropertiesProps {
   onDifficultyChange: (difficulty: Difficulty) => void;
   onProgressChange: (value: number) => void;
   onProgressCommit: (value: number) => void;
-  onReviewDateChange: (value: string) => void;
+  onDeadlineDateChange: (value: string) => void;
   onNewTagChange: (value: string) => void;
   onAddTag: () => void;
   onRemoveTag: (tag: string) => void;
@@ -22,7 +22,7 @@ export default function TopicProperties({
   localProgress, newTag,
   onTypeChange, onDifficultyChange,
   onProgressChange, onProgressCommit,
-  onReviewDateChange,
+  onDeadlineDateChange,
   onNewTagChange, onAddTag, onRemoveTag,
 }: TopicPropertiesProps) {
   const boardColors = board ? boardColorMap[board.color] : boardColorMap.sky;
@@ -74,8 +74,8 @@ export default function TopicProperties({
           </div>
         </div>
 
-        {/* Progress */}
-        <div className="flex items-center gap-3">
+        {/* Progress — hidden in MVP UI, code preserved for future use */}
+        <div className="hidden">
           <span className="w-20 shrink-0 text-xs text-ink-500">Progress</span>
           <div className="flex-1 space-y-1.5">
             <div className="flex items-center gap-2">
@@ -102,21 +102,21 @@ export default function TopicProperties({
           </div>
         </div>
 
-        {/* Review date */}
+        {/* Deadline date */}
         <div className="flex items-center gap-3">
-          <span className="w-20 shrink-0 text-xs text-ink-500">Review</span>
+          <span className="w-20 shrink-0 text-xs text-ink-500">Deadline</span>
           <div className="flex flex-1 items-center gap-2">
             <input
               type="date"
-              value={topic.reviewDate ?? ''}
-              onChange={(e) => onReviewDateChange(e.target.value)}
-              className="flex-1 rounded-lg border border-white/[0.06] bg-ink-800 px-3 py-2 text-sm text-ink-100 transition-colors focus:border-sky-500/30 focus:outline-none [color-scheme:dark]"
+              value={topic.deadlineDate ?? ''}
+              onChange={(e) => onDeadlineDateChange(e.target.value)}
+              className="flex-1 rounded-lg border border-white/[0.06] bg-ink-800 px-3 py-2 text-sm text-ink-100 transition-colors focus:border-rose-500/30 focus:outline-none [color-scheme:dark]"
             />
-            {topic.reviewDate && (
+            {topic.deadlineDate && (
               <button
-                onClick={() => onReviewDateChange('')}
+                onClick={() => onDeadlineDateChange('')}
                 className="rounded-md p-1.5 text-ink-600 transition-colors hover:bg-white/[0.06] hover:text-ink-300"
-                title="Clear review date"
+                title="Clear deadline"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

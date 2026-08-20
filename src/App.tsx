@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
-import { Search, Command, Plus, Moon, Sun, X } from 'lucide-react';
+import { Search, Command, Plus, Moon, Sun, X, Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import BoardsList from './components/BoardsList';
@@ -86,6 +86,7 @@ export default function App() {
   // ─── Search palette ────────────────────────────────────────────────────────
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // ─── New topic modal ───────────────────────────────────────────────────────
@@ -104,6 +105,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (sidebarOpen) { setSidebarOpen(false); return; }
         if (searchOpen) { setSearchOpen(false); setSearchQuery(''); return; }
         if (activeTopicId) { closeTopic(); return; }
       }
@@ -114,7 +116,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [searchOpen, activeTopicId, closeTopic]);
+  }, [searchOpen, sidebarOpen, activeTopicId, closeTopic]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
@@ -167,25 +169,49 @@ export default function App() {
     <div className="flex h-screen overflow-hidden bg-ink-980">
       <div className="pointer-events-none fixed inset-0 bg-ink-900" />
 
-      <Sidebar
-        boards={store.boards}
-        loading={store.loading}
-        realtimeStatus={store.realtimeStatus}
-      />
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — hidden on mobile, toggled via burger */}
+      <div className={`fixed inset-y-0 left-0 z-40 transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-auto ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <Sidebar
+          boards={store.boards}
+          loading={store.loading}
+          realtimeStatus={store.realtimeStatus}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </div>
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         {/* Header */}
-        <header className="glass-strong flex h-14 shrink-0 items-center justify-between px-6">
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="relative w-80 rounded-lg border border-white/[0.06] bg-ink-800/60 py-2 pl-9 pr-16 text-left text-sm text-ink-500 transition-colors hover:border-white/[0.1]"
-          >
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
-            <span>Search topics, boards, tags…</span>
-            <kbd className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded border border-white/[0.08] bg-ink-700 px-1.5 py-0.5 text-[10px] text-ink-500">
-              <Command className="h-2.5 w-2.5" /> K
-            </kbd>
-          </button>
+        <header className="glass-strong flex h-14 shrink-0 items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            {/* Mobile burger */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.06] bg-ink-800 text-ink-400 transition-colors hover:bg-white/[0.06] hover:text-ink-100 lg:hidden"
+              title="Open menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="relative w-48 rounded-lg border border-white/[0.06] bg-ink-800/60 py-2 pl-9 pr-4 text-left text-sm text-ink-500 transition-colors hover:border-white/[0.1] sm:w-64 md:w-80 md:pr-16"
+            >
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
+              <span>Search topics, boards, tags…</span>
+              <kbd className="absolute right-2.5 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded border border-white/[0.08] bg-ink-700 px-1.5 py-0.5 text-[10px] text-ink-500 md:flex">
+                <Command className="h-2.5 w-2.5" /> K
+              </kbd>
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={toggleTheme}
@@ -195,7 +221,7 @@ export default function App() {
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
             <button onClick={() => setNewTopicOpen(true)} className="btn-primary text-xs">
-              <Plus className="h-4 w-4" /> New topic
+              <Plus className="h-4 w-4" /><span className="hidden sm:inline"> New topic</span>
             </button>
           </div>
         </header>
@@ -252,7 +278,7 @@ export default function App() {
               } />
               <Route path="/calendar" element={
                 <Suspense fallback={<ViewSpinner />}>
-                  <CalendarView topics={store.topics} onSelectTopic={openTopic} />
+                  <CalendarView topics={store.topics} boards={store.boards} onSelectTopic={openTopic} />
                 </Suspense>
               } />
               <Route path="/settings" element={

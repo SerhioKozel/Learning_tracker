@@ -11,6 +11,7 @@ interface SidebarProps {
   boards: Board[];
   loading: boolean;
   realtimeStatus: 'connecting' | 'connected' | 'disconnected';
+  onClose?: () => void;
 }
 
 const navItems = [
@@ -21,7 +22,7 @@ const navItems = [
   { to: '/settings', label: 'Settings',   icon: Settings,        end: true },
 ];
 
-export default function Sidebar({ boards, loading, realtimeStatus }: SidebarProps) {
+export default function Sidebar({ boards, loading, realtimeStatus, onClose }: SidebarProps) {
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
 
@@ -49,6 +50,7 @@ export default function Sidebar({ boards, loading, realtimeStatus }: SidebarProp
             key={item.to}
             to={item.to}
             end={item.end}
+            onClick={onClose}
             className={({ isActive }) =>
               `group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                 isActive
@@ -116,6 +118,7 @@ export default function Sidebar({ boards, loading, realtimeStatus }: SidebarProp
                 <NavLink
                   key={b.id}
                   to={`/boards/${b.id}`}
+                  onClick={onClose}
                   className={({ isActive }) =>
                     `group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-200 ${
                       isActive ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'

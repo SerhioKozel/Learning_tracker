@@ -1,4 +1,4 @@
-import { CheckSquare, Link2, Clock } from 'lucide-react';
+import { Flag } from 'lucide-react';
 import { statusConfig, topicTypeConfig, difficultyConfig } from '../../config';
 import type { Topic } from '../../types';
 
@@ -6,8 +6,6 @@ export default function CardContent({ topic }: { topic: Topic }) {
   const s = statusConfig[topic.status];
   const tc = topicTypeConfig[topic.type];
   const d = difficultyConfig[topic.difficulty];
-  const checklistDone = topic.checklist.filter((c) => c.done).length;
-  const checklistTotal = topic.checklist.length;
 
   return (
     <>
@@ -39,19 +37,13 @@ export default function CardContent({ topic }: { topic: Topic }) {
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2.5">
         <div className="flex items-center gap-3">
-          {checklistTotal > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-ink-600">
-              <CheckSquare className="h-3 w-3" /> {checklistDone}/{checklistTotal}
-            </span>
-          )}
-          {topic.resources.length > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-ink-600">
-              <Link2 className="h-3 w-3" /> {topic.resources.length}
-            </span>
-          )}
-          {topic.reviewDate && (
-            <span className="flex items-center gap-1 text-[10px] text-amber-400/70">
-              <Clock className="h-3 w-3" /> {topic.reviewDate.slice(5)}
+          {/* Checklist counter — hidden in MVP, code preserved for future use */}
+          <span className="hidden flex items-center gap-1 text-[10px] text-ink-600" />
+          {/* Resource counter — hidden in MVP, code preserved for future use */}
+          <span className="hidden flex items-center gap-1 text-[10px] text-ink-600" />
+          {topic.deadlineDate && (
+            <span className="flex items-center gap-1 text-[10px] text-rose-400/80">
+              <Flag className="h-3 w-3" /> {topic.deadlineDate.slice(5)}
             </span>
           )}
         </div>

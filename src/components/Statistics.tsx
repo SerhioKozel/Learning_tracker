@@ -1,6 +1,7 @@
-import { TrendingUp, Clock, Target, Award, Calendar, ArrowUpRight, Layers } from 'lucide-react';
-import { boardColorMap, statusConfig, topicTypeConfig, HEATMAP_COLORS, STATUS_ORDER } from '../config';
-import { generateHeatmap, generateWeeklyActivity } from '../utils/analytics';
+import { TrendingUp, Clock, Target, Award, Flame, Layers } from 'lucide-react';
+import { boardColorMap, statusConfig, HEATMAP_COLORS, VISIBLE_STATUS_ORDER } from '../config';
+import { generateHeatmap, generateWeeklyActivity, computeStreak } from '../utils/analytics';
+import { STATUS_PROGRESS } from '../utils/status';
 import type { Board, Topic } from '../types';
 
 const difficultyColors: Record<string, string> = {
@@ -20,17 +21,26 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
   const maxActivity = Math.max(...weeklyActivity.map((w) => w.count), 1);
   const avgActivity = (weeklyActivity.reduce((s, w) => s + w.count, 0) / weeklyActivity.length).toFixed(1);
   const totalSessions = activityHeatmap.reduce((s, v) => s + v, 0);
+  void totalSessions; // kept for potential future use
   const completedCount = topics.filter((t) => t.status === 'completed').length;
+  const inProgressCount = topics.filter((t) => t.status === 'learning' || t.status === 'practice').length;
   const totalTopics = topics.length;
-  const masteryPct = totalTopics > 0 ? Math.round((completedCount / totalTopics) * 100) : 0;
+  const { current: currentStreak } = computeStreak(topics);
+  // Average progress across all topics derived from status (STATUS_PROGRESS map)
+  const avgProgress = totalTopics > 0
+    ? Math.round(topics.reduce((sum, t) => sum + STATUS_PROGRESS[t.status], 0) / totalTopics)
+    : 0;
   const circumference = 2 * Math.PI * 52;
 
-  const boardStats = boards.map((b) => ({
-    ...b,
-    pct: b.topicCount > 0 ? Math.round((b.completedCount / b.topicCount) * 100) : 0,
-  }));
+  const boardStats = boards.map((b) => {
+    const boardTopics = topics.filter((t) => t.boardId === b.id);
+    const avgProgress = boardTopics.length > 0
+      ? Math.round(boardTopics.reduce((sum, t) => sum + STATUS_PROGRESS[t.status], 0) / boardTopics.length)
+      : 0;
+    return { ...b, pct: avgProgress };
+  });
 
-  const statusDistribution = STATUS_ORDER.map((status) => ({
+  const statusDistribution = VISIBLE_STATUS_ORDER.map((status) => ({
     status,
     count: topics.filter((t) => t.status === status).length,
   }));
@@ -42,13 +52,9 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
   }));
   const totalDifficulty = difficultyDistribution.reduce((s, d) => s + d.count, 0);
 
-  const topicTypeDistribution = Object.keys(topicTypeConfig)
-    .map((type) => ({ type, count: topics.filter((t) => t.type === type).length }))
-    .filter((d) => d.count > 0);
-  const totalTypes = topicTypeDistribution.reduce((s, d) => s + d.count, 0);
 
   return (
-    <div className="mx-auto max-w-7xl px-8 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Header */}
       <div className="animate-fade-up">
         <h1 className="text-3xl font-bold tracking-tight text-white">Statistics</h1>
@@ -56,28 +62,27 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
       </div>
 
       {/* Top stats */}
-      <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
         {([
-          { icon: Clock,    label: 'Avg topics / week', value: avgActivity,       color: 'teal' },
-          { icon: Target,   label: 'Completion rate',   value: `${masteryPct}%`,  color: 'emerald' },
-          { icon: Calendar, label: 'Total updates',     value: totalSessions,     color: 'sky' },
-          { icon: Award,    label: 'Completed',         value: completedCount,    color: 'amber' },
+          { icon: Clock,    label: 'Avg topics / week', value: avgActivity,          color: 'sky' },
+          { icon: Target,   label: 'Avg progress',      value: `${avgProgress}%`,    color: 'teal' },
+          { icon: Layers,   label: 'In progress',       value: inProgressCount,      color: 'amber' },
+          { icon: Flame,    label: 'Current streak',    value: `${currentStreak}d`,  color: 'rose' },
+          { icon: Award,    label: 'Mastered',          value: completedCount,        color: 'emerald' },
         ] as const).map((stat, i) => {
-          const colorMap: Record<string, string> = {
-            teal:    'bg-emerald-500/15 text-emerald-300 ring-emerald-500/20',
-            emerald: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/20',
+          const colorMap = {
             sky:     'bg-sky-500/15 text-sky-300 ring-sky-500/20',
+            teal:    'bg-teal-500/15 text-teal-300 ring-teal-500/20',
             amber:   'bg-amber-500/15 text-amber-300 ring-amber-500/20',
-          };
+            rose:    'bg-rose-500/15 text-rose-300 ring-rose-500/20',
+            emerald: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/20',
+          } as const;
           return (
             <div key={i} className="surface animate-fade-up rounded-2xl p-5" style={{ animationDelay: `${100 + i * 100}ms` }}>
               <div className="flex items-center justify-between">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl ring-1 ${colorMap[stat.color]}`}>
                   <stat.icon className="h-5 w-5" strokeWidth={2} />
                 </div>
-                <span className="chip bg-white/[0.04] text-ink-400">
-                  <ArrowUpRight className="h-3 w-3" />
-                </span>
               </div>
               <div className="mt-4 text-3xl font-bold tabular-nums text-white">{stat.value}</div>
               <div className="mt-0.5 text-xs text-ink-500">{stat.label}</div>
@@ -130,11 +135,12 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
                   cx="60" cy="60" r="52" fill="none" strokeWidth="10" strokeLinecap="round"
                   className="stroke-emerald-400 transition-all duration-700"
                   strokeDasharray={circumference}
-                  strokeDashoffset={circumference - (circumference * masteryPct) / 100}
+                  strokeDashoffset={circumference - (circumference * avgProgress) / 100}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold tabular-nums text-white">{masteryPct}%</span>
+                <span className="text-2xl font-bold tabular-nums text-white">{avgProgress}%</span>
+                <span className="mt-0.5 text-[10px] text-ink-600">avg progress</span>
                 <span className="text-[10px] text-ink-600">completed</span>
               </div>
             </div>
@@ -161,6 +167,7 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
         {/* Board mastery */}
         <div className="surface animate-fade-up animate-delay-300 rounded-2xl p-5 lg:col-span-2">
           <h2 className="text-sm font-semibold text-white">Progress by board</h2>
+          <p className="mt-0.5 text-xs text-ink-500">Average status progress per board</p>
           <div className="mt-4 space-y-3">
             {boardStats.map((b) => {
               const c = boardColorMap[b.color] ?? boardColorMap.sky;
@@ -174,7 +181,6 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
                     />
                   </div>
                   <span className="w-10 shrink-0 text-right text-xs tabular-nums text-ink-500">{b.pct}%</span>
-                  <span className="w-14 shrink-0 text-right text-xs tabular-nums text-ink-600">{b.completedCount}/{b.topicCount}</span>
                 </div>
               );
             })}
@@ -209,32 +215,6 @@ export default function Statistics({ boards, topics }: StatisticsProps) {
           </div>
         </div>
       </div>
-
-      {/* Topic types */}
-      {topicTypeDistribution.length > 0 && (
-        <div className="surface animate-fade-up animate-delay-400 mt-6 rounded-2xl p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
-            <Layers className="h-4 w-4 text-ink-500" /> Topics by type
-          </h2>
-          <p className="mt-0.5 text-xs text-ink-500">Distribution across {totalTypes} topics</p>
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {topicTypeDistribution.map((d) => {
-              const tc = topicTypeConfig[d.type as keyof typeof topicTypeConfig];
-              const pct = totalTypes > 0 ? Math.round((d.count / totalTypes) * 100) : 0;
-              return (
-                <div key={d.type} className="rounded-xl border border-white/[0.05] bg-ink-800 p-3 text-center transition-colors hover:border-white/[0.08]">
-                  <div className="text-2xl">{tc.emoji}</div>
-                  <div className="mt-1.5 text-xs font-medium text-ink-100">{tc.label}</div>
-                  <div className="mt-1 flex items-center justify-center gap-1.5">
-                    <span className="text-sm font-bold tabular-nums text-white">{d.count}</span>
-                    <span className="text-[10px] text-ink-600">{pct}%</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Full heatmap */}
       <div className="surface animate-fade-up animate-delay-500 mt-6 rounded-2xl p-5">

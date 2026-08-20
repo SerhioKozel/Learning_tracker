@@ -45,7 +45,9 @@ export interface Topic {
   difficulty: Difficulty;
   progress: number;
   tags: string[];
+  /** @deprecated reviewDate is no longer used in MVP — kept for data compatibility only */
   reviewDate: string | null;
+  deadlineDate: string | null;
   checklist: ChecklistItem[];
   resources: Resource[];
   notes: string;
@@ -70,7 +72,8 @@ export interface Board {
 
 export interface CalendarEvent {
   date: string;
-  type: 'review' | 'completed';
+  type: 'deadline' | 'completed';
   topicId: string;
+  boardId: string;
   title: string;
 }

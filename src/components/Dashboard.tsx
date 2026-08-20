@@ -1,6 +1,6 @@
 import {
   Target, Flame, ChevronRight, Plus,
-  Calendar, CheckCircle, Layers, Layout,
+  CheckCircle, Layers, Layout, Flag,
 } from 'lucide-react';
 import { boardColorMap, statusConfig, topicTypeConfig, HEATMAP_COLORS, BOARD_ICONS } from '../config';
 import { generateHeatmap, generateWeeklyActivity, computeStreak } from '../utils/analytics';
@@ -27,9 +27,10 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
 
   const recentTopics = [...topics].slice(0, 5);
 
+  const todayStr = new Date().toISOString().slice(0, 10);
   const upcomingReviews = topics
-    .filter((t) => t.reviewDate)
-    .sort((a, b) => (a.reviewDate! < b.reviewDate! ? -1 : 1))
+    .filter((t) => t.deadlineDate && t.deadlineDate >= todayStr)
+    .sort((a, b) => (a.deadlineDate! < b.deadlineDate! ? -1 : 1))
     .slice(0, 5);
 
   const activityHeatmap = generateHeatmap(topics);
@@ -57,7 +58,7 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[
             { step: '1', title: 'Create a board', description: 'Group topics by subject — e.g. "Frontend", "Algorithms", "System Design".', action: () => onNavigate('/boards'), label: 'Create board' },
-            { step: '2', title: 'Add topics', description: 'Each topic is a card that moves through five stages: To Learn → Completed.' },
+            { step: '2', title: 'Add topics', description: 'Each topic is a card that moves through five stages: To Learn → Mastered.' },
             { step: '3', title: 'Track & review', description: 'Set review dates, log resources, write notes, and watch your progress grow.' },
           ].map((item) => (
             <div key={item.step} className="surface rounded-2xl p-5">
@@ -80,7 +81,7 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
 
   if (totalTopics === 0) {
     return (
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-center px-8 py-24 text-center">
+      <div className="mx-auto flex max-w-5xl flex-col items-center justify-center px-4 py-24 sm:px-6 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/15 ring-1 ring-sky-500/20">
           <Layers className="h-8 w-8 text-sky-300" />
         </div>
@@ -96,7 +97,7 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-8 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Header */}
       <div className="animate-fade-up">
         <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-ink-600">
@@ -250,7 +251,7 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
         <div className="surface animate-fade-up animate-delay-300 rounded-2xl p-5">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Calendar className="h-4 w-4 text-amber-300" /> Upcoming reviews
+              <Flag className="h-4 w-4 text-rose-400" /> Upcoming deadlines
             </h2>
             <button onClick={() => onNavigate('/calendar')} className="btn-ghost text-xs">
               <ChevronRight className="h-3.5 w-3.5" />
@@ -258,7 +259,7 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
           </div>
           <div className="mt-4 space-y-1">
             {upcomingReviews.length === 0 ? (
-              <p className="py-6 text-center text-xs text-ink-600">No reviews scheduled</p>
+              <p className="py-6 text-center text-xs text-ink-600">No upcoming deadlines</p>
             ) : upcomingReviews.map((t) => {
               const s = statusConfig[t.status];
               const b = boards.find((b) => b.id === t.boardId);
@@ -270,8 +271,8 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
                   className="group flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
                 >
                   <div className="flex w-12 shrink-0 flex-col items-center">
-                    <span className="text-[10px] uppercase text-ink-600">{t.reviewDate!.slice(5, 7)}</span>
-                    <span className="text-lg font-bold tabular-nums leading-none text-ink-100">{t.reviewDate!.slice(8)}</span>
+                    <span className="text-[10px] uppercase text-ink-600">{t.deadlineDate!.slice(5, 7)}</span>
+                    <span className="text-lg font-bold tabular-nums leading-none text-ink-100">{t.deadlineDate!.slice(8)}</span>
                   </div>
                   <div className="min-w-0 flex-1 border-l border-white/[0.06] pl-3">
                     <div className="truncate text-sm font-medium text-ink-100 group-hover:text-white">{t.title}</div>

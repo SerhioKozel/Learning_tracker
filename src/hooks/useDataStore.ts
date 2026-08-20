@@ -37,6 +37,7 @@ interface RawTopic {
   progress: number;
   tags: string[] | null;
   review_date: string | null;
+  deadline_date: string | null;
   checklist: ChecklistItem[] | null;
   resources: Resource[] | null;
   notes: string | null;
@@ -74,7 +75,8 @@ function mapTopic(raw: RawTopic): Topic {
     difficulty: raw.difficulty as Difficulty,
     progress: raw.progress,
     tags: raw.tags ?? [],
-    reviewDate: raw.review_date,
+    reviewDate: raw.review_date,       // preserved for data compatibility, not used in UI
+    deadlineDate: raw.deadline_date,
     checklist: raw.checklist ?? [],
     resources: raw.resources ?? [],
     notes: raw.notes ?? '',
@@ -123,10 +125,6 @@ export function useDataStore() {
   }, [fetchAll]);
 
   // ─── Supabase Realtime subscription ────────────────────────────────────────
-  // A single channel subscribes to all INSERT/UPDATE/DELETE events on both
-  // tables. On any change we call fetchAll() to stay consistent with the DB.
-  // This is intentionally simple — fine for a single-user tool where event
-  // frequency is low. For high-frequency updates, apply the payload directly.
 
   useEffect(() => {
     const channel = supabase
@@ -210,6 +208,7 @@ export function useDataStore() {
         title: t.title, description: t.description, status: t.status,
         board_id: newBoard.id, type: t.type, difficulty: t.difficulty,
         progress: t.progress, tags: t.tags, review_date: t.review_date,
+        deadline_date: t.deadline_date,
         checklist: t.checklist, resources: t.resources, notes: t.notes, history: t.history,
       }));
       await supabase.from('topics').insert(newTopics);
@@ -232,7 +231,8 @@ export function useDataStore() {
       .insert({
         title: data.title, description: '', status: data.status ?? 'to_learn',
         board_id: data.boardId, type: 'learning', difficulty: 'medium',
-        progress: 0, tags: [], review_date: null, checklist: [], resources: [],
+        progress: 0, tags: [], review_date: null, deadline_date: null,
+        checklist: [], resources: [],
         notes: '', history, created_at: now, updated_at: now,
       })
       .select('*')
@@ -248,7 +248,7 @@ export function useDataStore() {
     data: Partial<{
       title: string; description: string; status: Status; type: TopicType;
       difficulty: Difficulty; progress: number; tags: string[];
-      reviewDate: string | null; checklist: ChecklistItem[];
+      deadlineDate: string | null; checklist: ChecklistItem[];
       resources: Resource[]; notes: string; history: HistoryEntry[];
     }>,
   ): Promise<void> => {
@@ -260,7 +260,7 @@ export function useDataStore() {
     if (data.difficulty !== undefined) updates.difficulty = data.difficulty;
     if (data.progress !== undefined) updates.progress = data.progress;
     if (data.tags !== undefined) updates.tags = data.tags;
-    if (data.reviewDate !== undefined) updates.review_date = data.reviewDate;
+    if (data.deadlineDate !== undefined) updates.deadline_date = data.deadlineDate;
     if (data.checklist !== undefined) updates.checklist = data.checklist;
     if (data.resources !== undefined) updates.resources = data.resources;
     if (data.notes !== undefined) updates.notes = data.notes;
@@ -289,6 +289,7 @@ export function useDataStore() {
         progress: 0,
         tags: topic.tags,
         review_date: null,
+        deadline_date: null,
         checklist: topic.checklist.map((c) => ({ ...c, done: false })),
         resources: topic.resources.map((r) => ({ ...r, done: false })),
         notes: topic.notes,
@@ -336,7 +337,6 @@ export function useDataStore() {
   }, [fetchAll]);
 
   // ─── Optimistic sub-item mutations ─────────────────────────────────────────
-  // Applied to local state immediately for instant feedback, persisted in background.
 
   const toggleChecklistItem = useCallback(async (topicId: string, itemId: string): Promise<void> => {
     const topic = topics.find((t) => t.id === topicId);
@@ -446,7 +446,6 @@ export function useDataStore() {
       const parsed = JSON.parse(json);
       if (!parsed.boards || !parsed.topics) return false;
 
-      // Boards must be upserted before topics — topics.board_id FK references boards(id)
       const { error: boardsErr } = await supabase.from('boards').upsert(
         parsed.boards.map((b: Record<string, unknown>) => ({
           id: b.id, title: b.title, description: b.description ?? '',
@@ -463,6 +462,7 @@ export function useDataStore() {
             type: t.type ?? 'learning', difficulty: t.difficulty ?? 'medium',
             progress: t.progress ?? 0, tags: t.tags ?? [],
             review_date: t.reviewDate ?? t.review_date ?? null,
+            deadline_date: t.deadlineDate ?? t.deadline_date ?? null,
             checklist: t.checklist ?? [], resources: t.resources ?? [],
             notes: t.notes ?? '', history: t.history ?? [],
           })),

@@ -10,7 +10,7 @@ import {
   type DragOverEvent,
 } from '@dnd-kit/core';
 import { Plus, ChevronLeft, X, Layout } from 'lucide-react';
-import { statusConfig, boardColorMap, BOARD_ICONS, STATUS_ORDER as COLUMN_ORDER } from '../config';
+import { statusConfig, boardColorMap, BOARD_ICONS, VISIBLE_STATUS_ORDER as COLUMN_ORDER } from '../config';
 import ConfirmDialog from './ui/ConfirmDialog';
 import DraggableCard from './board/DraggableCard';
 import DroppableColumn from './board/DroppableColumn';
@@ -134,18 +134,6 @@ export default function BoardView({
               </div>
             </div>
           </div>
-
-          <BoardFilters
-            query={query}
-            filterDifficulty={filterDifficulty}
-            filterType={filterType}
-            filterOpen={filterOpen}
-            onQueryChange={setQuery}
-            onFilterOpenChange={setFilterOpen}
-            onDifficultyChange={setFilterDifficulty}
-            onTypeChange={setFilterType}
-            onClearAll={() => { setFilterDifficulty(null); setFilterType(null); }}
-          />
         </div>
 
         <div className="relative mt-5 flex items-center gap-6">
@@ -162,6 +150,21 @@ export default function BoardView({
         </div>
       </div>
 
+      {/* Search + filters bar — outside overflow-hidden so dropdown is never clipped */}
+      <div className="flex items-center justify-end border-b border-white/[0.04] bg-ink-950/60 px-8 py-2.5">
+        <BoardFilters
+          query={query}
+          filterDifficulty={filterDifficulty}
+          filterType={filterType}
+          filterOpen={filterOpen}
+          onQueryChange={setQuery}
+          onFilterOpenChange={setFilterOpen}
+          onDifficultyChange={setFilterDifficulty}
+          onTypeChange={setFilterType}
+          onClearAll={() => { setFilterDifficulty(null); setFilterType(null); }}
+        />
+      </div>
+
       {/* Kanban columns */}
       <DndContext
         sensors={sensors}
@@ -175,7 +178,7 @@ export default function BoardView({
               const s = statusConfig[status];
               const colTopics = filteredTopics.filter((t) => t.status === status);
               return (
-                <div key={status} className="flex w-72 shrink-0 flex-col">
+                <div key={status} className="flex w-80 shrink-0 flex-col">
                   {/* Column header */}
                   <div className="mb-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -254,7 +257,7 @@ export default function BoardView({
                       </div>
                     )}
 
-                    {newTopicCol !== status && (
+                    {status === 'to_learn' && newTopicCol !== status && (
                       <button
                         onClick={() => { setNewTopicCol(status); setNewTopicTitle(''); }}
                         className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/[0.06] py-2.5 text-xs text-ink-600 transition-colors hover:border-white/[0.1] hover:text-ink-400"

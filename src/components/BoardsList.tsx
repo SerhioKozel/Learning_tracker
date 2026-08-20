@@ -109,7 +109,7 @@ export default function BoardsList({
   const boardToDelete = boards.find((b) => b.id === confirmDeleteId);
 
   return (
-    <div className="mx-auto max-w-7xl px-8 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Header */}
       <div className="animate-fade-up flex items-start justify-between">
         <div>
@@ -159,8 +159,6 @@ export default function BoardsList({
           const c = boardColorMap[board.color] ?? boardColorMap.sky;
           const Icon = BOARD_ICONS[board.icon] ?? Layout;
           const pct = board.topicCount > 0 ? Math.round((board.completedCount / board.topicCount) * 100) : 0;
-          const boardTopics = topics.filter((t) => t.boardId === board.id);
-          const reviewing = boardTopics.filter((t) => t.status === 'review').length;
           return (
             <div
               key={board.id}
@@ -205,9 +203,6 @@ export default function BoardsList({
                 <div className="mt-4 flex items-center gap-4 text-xs text-ink-500">
                   <span><span className="font-semibold tabular-nums text-ink-100">{board.topicCount}</span> topics</span>
                   <span><span className="font-semibold tabular-nums text-ink-100">{board.completedCount}</span> completed</span>
-                  {reviewing > 0 && (
-                    <span className={c.text}><span className="font-semibold tabular-nums">{reviewing}</span> in review</span>
-                  )}
                 </div>
                 <div className="mt-4 flex items-center gap-2">
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-700">

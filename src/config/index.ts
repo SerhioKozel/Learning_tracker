@@ -53,10 +53,13 @@ export const statusConfig: Record<Status, {
   learning:  { label: 'Learning',   color: 'teal',    bg: 'bg-teal-500/15',     text: 'text-teal-300',    border: 'border-teal-500/30',    dot: 'bg-teal-400' },
   practice:  { label: 'Practice',   color: 'sky',     bg: 'bg-sky-500/15',      text: 'text-sky-300',     border: 'border-sky-500/30',     dot: 'bg-sky-400' },
   review:    { label: 'Review',     color: 'amber',   bg: 'bg-amber-500/15',    text: 'text-amber-300',   border: 'border-amber-500/30',   dot: 'bg-amber-400' },
-  completed: { label: 'Completed',  color: 'emerald', bg: 'bg-emerald-500/15',  text: 'text-emerald-300', border: 'border-emerald-500/30', dot: 'bg-emerald-400' },
+  completed: { label: 'Mastered',  color: 'emerald', bg: 'bg-emerald-500/15',  text: 'text-emerald-300', border: 'border-emerald-500/30', dot: 'bg-emerald-400' },
 };
 
 export const STATUS_ORDER: Status[] = ['to_learn', 'learning', 'practice', 'review', 'completed'];
+
+/** Statuses shown in the UI (kanban columns, drawer pills, charts). review is hidden. */
+export const VISIBLE_STATUS_ORDER: Status[] = ['to_learn', 'learning', 'practice', 'completed'];
 
 // ─── Topic types ─────────────────────────────────────────────────────────────
 
