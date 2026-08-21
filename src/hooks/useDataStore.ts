@@ -474,8 +474,8 @@ export function useDataStore() {
   }, [fetchAll]);
 
   const resetData = useCallback(async (): Promise<void> => {
-    await supabase.from('topics').delete().neq('id', '___impossible___');
-    await supabase.from('boards').delete().neq('id', '___impossible___');
+    await supabase.from('topics').delete().gte('created_at', '2000-01-01');
+    await supabase.from('boards').delete().gte('created_at', '2000-01-01');
     await fetchAll();
   }, [fetchAll]);
 
