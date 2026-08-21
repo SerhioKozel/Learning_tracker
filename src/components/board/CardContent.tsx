@@ -1,9 +1,8 @@
 import { Flag } from 'lucide-react';
-import { statusConfig, topicTypeConfig, difficultyConfig } from '../../config';
+import { topicTypeConfig, difficultyConfig } from '../../config';
 import type { Topic } from '../../types';
 
 export default function CardContent({ topic }: { topic: Topic }) {
-  const s = statusConfig[topic.status];
   const tc = topicTypeConfig[topic.type];
   const d = difficultyConfig[topic.difficulty];
 
@@ -23,18 +22,6 @@ export default function CardContent({ topic }: { topic: Topic }) {
       <p className="mt-1 text-xs leading-relaxed text-ink-500 line-clamp-2">
         {topic.description || 'No description yet'}
       </p>
-      <div className="mt-3">
-        <div className="flex items-center justify-between text-[10px] text-ink-600">
-          <span>Progress</span>
-          <span className="tabular-nums">{topic.progress}%</span>
-        </div>
-        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-ink-700">
-          <div
-            className={`h-full rounded-full ${s.dot} transition-all duration-500`}
-            style={{ width: `${topic.progress}%` }}
-          />
-        </div>
-      </div>
       <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2.5">
         <div className="flex items-center gap-3">
           {/* Checklist counter — hidden in MVP, code preserved for future use */}

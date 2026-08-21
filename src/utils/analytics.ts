@@ -21,8 +21,10 @@ export function generateHeatmap(topics: Topic[]): number[] {
   return days;
 }
 
-export function generateWeeklyActivity(topics: Topic[]): { week: string; count: number }[] {
-  const weeks: { week: string; count: number }[] = [];
+export function generateWeeklyActivity(
+  topics: Topic[],
+): { week: string; count: number; moved: number; updated: number }[] {
+  const weeks: { week: string; count: number; moved: number; updated: number }[] = [];
   const now = new Date();
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -32,12 +34,31 @@ export function generateWeeklyActivity(topics: Topic[]): { week: string; count: 
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 7);
 
-    const count = topics.filter((t) => {
-      const d = new Date(t.updatedAtRaw);
-      return d >= weekStart && d < weekEnd;
-    }).length;
+    let moved = 0;
+    let updated = 0;
 
-    weeks.push({ week: `${monthNames[weekStart.getMonth()]} ${weekStart.getDate()}`, count });
+    for (const t of topics) {
+      // Count status moves from history entries in this week
+      const movedInWeek = t.history.filter((h) => {
+        if (h.action !== 'moved') return false;
+        const d = new Date(h.date);
+        return d >= weekStart && d < weekEnd;
+      }).length;
+      moved += movedInWeek;
+
+      // Count as "updated" if updatedAtRaw falls in this week but had no move
+      const updatedAt = new Date(t.updatedAtRaw);
+      if (updatedAt >= weekStart && updatedAt < weekEnd && movedInWeek === 0) {
+        updated += 1;
+      }
+    }
+
+    weeks.push({
+      week: `${monthNames[weekStart.getMonth()]} ${weekStart.getDate()}`,
+      count: moved + updated,
+      moved,
+      updated,
+    });
   }
 
   return weeks;

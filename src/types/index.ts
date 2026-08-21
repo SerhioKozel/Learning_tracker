@@ -43,7 +43,6 @@ export interface Topic {
   boardId: string;
   type: TopicType;
   difficulty: Difficulty;
-  progress: number;
   tags: string[];
   /** @deprecated reviewDate is no longer used in MVP — kept for data compatibility only */
   reviewDate: string | null;
@@ -57,11 +56,13 @@ export interface Topic {
   createdAt: string;
 }
 
+export type BoardColor = 'sky' | 'cyan' | 'teal' | 'emerald' | 'amber' | 'orange' | 'rose' | 'violet' | 'indigo';
+
 export interface Board {
   id: string;
   title: string;
   description: string;
-  color: 'sky' | 'teal' | 'amber' | 'rose' | 'emerald';
+  color: BoardColor;
   icon: string;
   topicCount: number;
   completedCount: number;

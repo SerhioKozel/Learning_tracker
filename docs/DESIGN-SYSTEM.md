@@ -43,10 +43,14 @@ Standard Tailwind ramps at specific opacities for semantic meaning:
 | Ramp | Semantic role |
 |------|--------------|
 | `sky` | Primary accent, interactive elements, sky-colored boards |
+| `cyan` | DevTools, CLI-colored boards |
 | `teal` | Learning status, teal-colored boards |
 | `emerald` | Completed status, success states, emerald-colored boards |
 | `amber` | Review status, warnings, amber-colored boards |
+| `orange` | Mobile, design-colored boards |
 | `rose` | Hard difficulty, destructive actions, rose-colored boards |
+| `violet` | ML, AI-colored boards |
+| `indigo` | Languages, compilers-colored boards |
 
 ### Special Tokens
 
@@ -160,10 +164,14 @@ boardColorMap[board.color] → { bg, text, border, gradient, ring, dot }
 | Color | Value |
 |-------|-------|
 | `sky` | Blue — frontend, web |
+| `cyan` | Cyan — DevTools, CLI |
 | `teal` | Teal — data, APIs |
-| `amber` | Amber — algorithms, CS |
-| `rose` | Rose — systems, infra |
 | `emerald` | Emerald — completed domains |
+| `amber` | Amber — algorithms, CS |
+| `orange` | Orange — mobile, design |
+| `rose` | Rose — systems, infra |
+| `violet` | Violet — ML, AI |
+| `indigo` | Indigo — languages, compilers |
 
 ---
 

@@ -34,7 +34,6 @@ interface RawTopic {
   board_id: string;
   type: string;
   difficulty: string;
-  progress: number;
   tags: string[] | null;
   review_date: string | null;
   deadline_date: string | null;
@@ -73,7 +72,6 @@ function mapTopic(raw: RawTopic): Topic {
     boardId: raw.board_id,
     type: raw.type as TopicType,
     difficulty: raw.difficulty as Difficulty,
-    progress: raw.progress,
     tags: raw.tags ?? [],
     reviewDate: raw.review_date,       // preserved for data compatibility, not used in UI
     deadlineDate: raw.deadline_date,
@@ -207,7 +205,7 @@ export function useDataStore() {
       const newTopics = boardTopics.map((t) => ({
         title: t.title, description: t.description, status: t.status,
         board_id: newBoard.id, type: t.type, difficulty: t.difficulty,
-        progress: t.progress, tags: t.tags, review_date: t.review_date,
+        tags: t.tags, review_date: t.review_date,
         deadline_date: t.deadline_date,
         checklist: t.checklist, resources: t.resources, notes: t.notes, history: t.history,
       }));
@@ -231,7 +229,7 @@ export function useDataStore() {
       .insert({
         title: data.title, description: '', status: data.status ?? 'to_learn',
         board_id: data.boardId, type: 'learning', difficulty: 'medium',
-        progress: 0, tags: [], review_date: null, deadline_date: null,
+        tags: [], review_date: null, deadline_date: null,
         checklist: [], resources: [],
         notes: '', history, created_at: now, updated_at: now,
       })
@@ -247,7 +245,7 @@ export function useDataStore() {
     id: string,
     data: Partial<{
       title: string; description: string; status: Status; type: TopicType;
-      difficulty: Difficulty; progress: number; tags: string[];
+      difficulty: Difficulty; tags: string[];
       deadlineDate: string | null; checklist: ChecklistItem[];
       resources: Resource[]; notes: string; history: HistoryEntry[];
     }>,
@@ -258,7 +256,6 @@ export function useDataStore() {
     if (data.status !== undefined) updates.status = data.status;
     if (data.type !== undefined) updates.type = data.type;
     if (data.difficulty !== undefined) updates.difficulty = data.difficulty;
-    if (data.progress !== undefined) updates.progress = data.progress;
     if (data.tags !== undefined) updates.tags = data.tags;
     if (data.deadlineDate !== undefined) updates.deadline_date = data.deadlineDate;
     if (data.checklist !== undefined) updates.checklist = data.checklist;
@@ -286,7 +283,6 @@ export function useDataStore() {
         board_id: topic.boardId,
         type: topic.type,
         difficulty: topic.difficulty,
-        progress: 0,
         tags: topic.tags,
         review_date: null,
         deadline_date: null,
@@ -309,23 +305,23 @@ export function useDataStore() {
     const topic = topics.find((t) => t.id === id);
     if (!topic || topic.status === status) return;
 
-    const { progress, historyEntry } = computeStatusChange(topic, status);
+    const { historyEntry } = computeStatusChange(topic, status);
     const newHistory = [...topic.history, historyEntry].slice(-50);
 
     // Apply optimistically
     setTopics((prev) => prev.map((t) =>
-      t.id === id ? { ...t, status, progress, history: newHistory } : t,
+      t.id === id ? { ...t, status, history: newHistory } : t,
     ));
 
     const { error: err } = await supabase
       .from('topics')
-      .update({ status, progress, history: newHistory, updated_at: new Date().toISOString() })
+      .update({ status, history: newHistory, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (err) {
       setError(err.message);
       setTopics((prev) => prev.map((t) =>
-        t.id === id ? { ...t, status: topic.status, progress: topic.progress, history: topic.history } : t,
+        t.id === id ? { ...t, status: topic.status, history: topic.history } : t,
       ));
     }
   }, [topics]);
@@ -460,7 +456,7 @@ export function useDataStore() {
             id: t.id, title: t.title, description: t.description ?? '',
             status: t.status ?? 'to_learn', board_id: t.boardId ?? t.board_id,
             type: t.type ?? 'learning', difficulty: t.difficulty ?? 'medium',
-            progress: t.progress ?? 0, tags: t.tags ?? [],
+            tags: t.tags ?? [],
             review_date: t.reviewDate ?? t.review_date ?? null,
             deadline_date: t.deadlineDate ?? t.deadline_date ?? null,
             checklist: t.checklist ?? [], resources: t.resources ?? [],

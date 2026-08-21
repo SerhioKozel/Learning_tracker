@@ -24,11 +24,9 @@ export const STATUS_PROGRESS: Record<Status, number> = {
  * pills and drag-and-drop between Kanban columns (DL-014).
  */
 export function computeStatusChange(
-  topic: { status: Status; progress: number },
+  topic: { status: Status },
   newStatus: Status,
-): { progress: number; historyEntry: HistoryEntry } {
-  const progress = STATUS_PROGRESS[newStatus];
-
+): { historyEntry: HistoryEntry } {
   const historyEntry: HistoryEntry = {
     id: generateId('h'),
     action: 'moved',
@@ -36,5 +34,5 @@ export function computeStatusChange(
     date: new Date().toISOString(),
   };
 
-  return { progress, historyEntry };
+  return { historyEntry };
 }

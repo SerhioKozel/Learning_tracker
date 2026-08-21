@@ -20,7 +20,7 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
   const completed = topics.filter((t) => t.status === 'completed').length;
   const inProgress = topics.filter((t) => t.status === 'learning' || t.status === 'practice').length;
   const totalProgress = totalTopics > 0
-    ? Math.round(topics.reduce((s, t) => s + t.progress, 0) / totalTopics)
+    ? Math.round((completed / totalTopics) * 100)
     : 0;
 
   const { current: streak, best: bestStreak } = computeStreak(topics);

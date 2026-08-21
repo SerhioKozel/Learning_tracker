@@ -72,7 +72,7 @@ src/
 ```
 Board
   id, title, description
-  color: sky | teal | amber | rose | emerald
+  color: sky | cyan | teal | emerald | amber | orange | rose | violet | indigo
   icon: Layout | Network | Binary | Server | Cloud
   topicCount, completedCount        ← computed on read
   updatedAt (formatted), updatedAtRaw (ISO)
@@ -224,7 +224,7 @@ CREATE TABLE boards (
   title       text NOT NULL,
   description text NOT NULL DEFAULT '',
   color       text NOT NULL DEFAULT 'sky'
-                   CHECK (color IN ('sky','teal','amber','rose','emerald')),
+                   CHECK (color IN ('sky','cyan','teal','emerald','amber','orange','rose','violet','indigo')),
   icon        text NOT NULL DEFAULT 'Layout',
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()

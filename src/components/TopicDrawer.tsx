@@ -16,7 +16,7 @@ interface TopicDrawerProps {
   onClose: () => void;
   onUpdate: (id: string, data: Partial<{
     title: string; description: string; status: Status; type: TopicType;
-    difficulty: Difficulty; progress: number; tags: string[];
+    difficulty: Difficulty; tags: string[];
     deadlineDate: string | null; checklist: Topic['checklist'];
     resources: Resource[]; notes: string; history: HistoryEntry[];
   }>) => Promise<void>;
@@ -44,7 +44,6 @@ export default function TopicDrawer({
   const [editingTitle, setEditingTitle] = useState(false);
   const [description, setDescription] = useState(topic?.description ?? '');
   const [notes, setNotes] = useState(topic?.notes ?? '');
-  const [localProgress, setLocalProgress] = useState(topic?.progress ?? 0);
   const [newChecklistText, setNewChecklistText] = useState('');
   const [newResource, setNewResource] = useState<{ title: string; type: Resource['type']; url: string }>(
     { title: '', type: 'url', url: '' },
@@ -60,13 +59,12 @@ export default function TopicDrawer({
       setEditingTitle(false);
       setDescription(topic?.description ?? '');
       setNotes(topic?.notes ?? '');
-      setLocalProgress(topic?.progress ?? 0);
       setNewChecklistText('');
       setNewResource({ title: '', type: 'url', url: '' });
       setNewTag('');
       prevTopicId.current = topic?.id;
     }
-  }, [topic?.id, topic?.title, topic?.description, topic?.notes, topic?.progress]);
+  }, [topic?.id, topic?.title, topic?.description, topic?.notes]);
 
   if (!topic) return null;
 
@@ -75,10 +73,9 @@ export default function TopicDrawer({
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   const handleStatusChange = (newStatus: Status) => {
-    const { progress, historyEntry } = computeStatusChange(topic, newStatus);
+    const { historyEntry } = computeStatusChange(topic, newStatus);
     onUpdate(topic.id, {
       status: newStatus,
-      progress,
       history: [...topic.history, historyEntry],
     });
   };
@@ -146,12 +143,9 @@ export default function TopicDrawer({
           <TopicProperties
             topic={topic}
             board={board}
-            localProgress={localProgress}
             newTag={newTag}
             onTypeChange={(type) => onUpdate(topic.id, { type })}
             onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty })}
-            onProgressChange={setLocalProgress}
-            onProgressCommit={(value) => onUpdate(topic.id, { progress: value })}
             onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null })}
             onNewTagChange={setNewTag}
             onAddTag={() => {
