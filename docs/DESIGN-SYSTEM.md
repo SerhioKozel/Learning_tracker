@@ -1,7 +1,7 @@
 # Design System
 
 **Project:** Learning Tracker  
-**Last Updated:** 2026-08-09
+**Last Updated:** 2026-08-24
 
 The visual language is implemented as Tailwind CSS utility classes extended with CSS custom properties (`index.css`). The system supports dark and light themes from a single set of class names — no `dark:` variants needed.
 
@@ -150,6 +150,38 @@ statusConfig[status] → { label, bg, text, border, dot }
 | `practice` | Sky | Practice | `bg-sky-400` |
 | `review` | Amber | Review | `bg-amber-400` |
 | `completed` | Emerald | Completed | `bg-emerald-400` |
+
+---
+
+## App Icon
+
+The application icon is a sprout with a coral spark — a plant growing from knowledge. Three SVG files live in the repository root:
+
+| File | Size | Use |
+|------|------|-----|
+| `favicon.svg` | 32×32 viewBox | Browser tab, bookmarks — no gradient for crispness at small sizes |
+| `icon-192.svg` | 192×192 viewBox | PWA manifest, Apple Touch Icon |
+| `icon-512.svg` | 512×512 viewBox | App Store, large contexts |
+
+**Color tokens used in the icon:**
+
+| Role | Value |
+|------|-------|
+| Background | `#0d1117` |
+| Left leaf | `#0d9488` (teal-600) |
+| Right leaf | `#14b8a6` (teal-500) |
+| Stem | `#5eead4` (teal-300) |
+| Spark (bud) | `#fb923c` (orange-400) |
+| Spark inner | `#0d1117` (background, creates ring effect) |
+
+The spark colour (`#fb923c`) is intentionally warm — the only warm tone on a cold background, making it the visual anchor of the mark.
+
+`index.html` references the icons:
+```html
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/icon-192.svg" />
+<meta name="theme-color" content="#0d1117" />
+```
 
 ---
 

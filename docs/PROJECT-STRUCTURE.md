@@ -1,7 +1,7 @@
 # Project Structure
 
 **Project:** Learning Tracker  
-**Last Updated:** 2026-08-09
+**Last Updated:** 2026-08-24
 
 ---
 
@@ -16,6 +16,9 @@ learning-tracker/
 ├── .env.example            # Required env vars — copy to .env to run locally
 ├── .env                    # Local secrets — git-ignored, never commit
 ├── index.html              # Vite HTML entry point
+├── favicon.svg             # App icon — browser tab (16–32px, no gradient)
+├── icon-192.svg            # App icon — PWA / Apple Touch (192px, with subtle glow)
+├── icon-512.svg            # App icon — App Store / large (512px, with subtle glow)
 ├── package.json            # name: "learning-tracker", scripts, dependencies
 ├── tailwind.config.js      # Custom ink ramp, animations, darkMode: 'class'
 ├── tsconfig.json           # Project references root
