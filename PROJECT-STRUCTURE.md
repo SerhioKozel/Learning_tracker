@@ -56,7 +56,7 @@ src/
 ├── config/
 │   └── index.ts            # Semantic config maps and shared constants
 │                           # statusConfig, boardColorMap, BOARD_ICONS,
-│                           # topicTypeConfig, difficultyConfig,
+│                           # difficultyConfig,
 │                           # HEATMAP_COLORS, BOARD_COLOR_OPTIONS
 │
 ├── utils/
@@ -80,7 +80,7 @@ src/
     │   └── ConfirmDialog.tsx
     │
     ├── board/              # BoardView's sub-components (BL-014)
-    │   ├── BoardFilters.tsx    # Search input + difficulty/type filter dropdown
+    │   ├── BoardFilters.tsx    # Search input + difficulty filter dropdown
     │   ├── CardContent.tsx     # Shared card body — used by DraggableCard and the drag overlay
     │   ├── DraggableCard.tsx   # useDraggable wrapper around CardContent
     │   └── DroppableColumn.tsx # useDroppable wrapper for a Kanban column

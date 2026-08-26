@@ -290,6 +290,7 @@ export default function App() {
                     topics={store.topics}
                     onExport={store.exportData}
                     onImport={store.importData}
+                    onResetStats={store.resetStats}
                     onReset={store.resetData}
                   />
                 </Suspense>
@@ -372,12 +373,17 @@ export default function App() {
                     <button
                       key={t.id}
                       onClick={() => { openTopic(t.id); closeSearch(); }}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/[0.06]"
+                      className="flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/[0.06]"
                     >
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-                      <span className="flex-1 truncate text-sm font-medium text-ink-100">{t.title}</span>
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-ink-100">{t.title}</div>
+                        {t.description && (
+                          <div className="mt-0.5 truncate text-xs text-ink-500">{t.description}</div>
+                        )}
+                      </div>
                       {t.tags.slice(0, 2).map((tag) => (
-                        <span key={tag} className="chip bg-ink-700 text-[10px] text-ink-400">{tag}</span>
+                        <span key={tag} className="chip mt-0.5 shrink-0 bg-ink-700 text-[10px] text-ink-400">{tag}</span>
                       ))}
                     </button>
                   ))}
