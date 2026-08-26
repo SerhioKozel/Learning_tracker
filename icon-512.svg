@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg-glow" cx="50%" cy="75%" r="65%">
+      <stop offset="0%" stop-color="#0d9488" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#0d1117" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- bg -->
+  <rect width="512" height="512" rx="112" fill="#0d1117"/>
+  <rect width="512" height="512" rx="112" fill="url(#bg-glow)"/>
+  <!-- stem -->
+  <line x1="256" y1="410" x2="256" y2="118" stroke="#5eead4" stroke-width="20" stroke-linecap="round"/>
+  <!-- left leaf -->
+  <path d="M256,330 Q64,218 100,368 Q138,448 256,372 Z" fill="#0d9488"/>
+  <!-- right leaf -->
+  <path d="M256,244 Q448,130 412,294 Q376,400 256,282 Z" fill="#14b8a6"/>
+  <!-- coral spark -->
+  <circle cx="256" cy="118" r="54" fill="#fb923c"/>
+  <circle cx="256" cy="118" r="29" fill="#0d1117"/>
+</svg>

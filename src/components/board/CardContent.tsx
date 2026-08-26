@@ -1,17 +1,13 @@
 import { Flag } from 'lucide-react';
-import { topicTypeConfig, difficultyConfig } from '../../config';
+import { difficultyConfig } from '../../config';
 import type { Topic } from '../../types';
 
 export default function CardContent({ topic }: { topic: Topic }) {
-  const tc = topicTypeConfig[topic.type];
   const d = difficultyConfig[topic.difficulty];
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="chip border border-ink-600/40 bg-ink-700/40 text-[10px] text-ink-300">
-          {tc.label}
-        </span>
+      <div className="mb-2 flex items-center justify-end">
         <span className={`chip border text-[10px] ${d.bg} ${d.text} ${d.border}`}>
           {d.label}
         </span>

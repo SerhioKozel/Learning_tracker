@@ -4,6 +4,7 @@ import {
   Download,
   Upload,
   Trash2,
+  RotateCcw,
   Moon,
   Sun,
   Info,
@@ -24,11 +25,13 @@ interface SettingsViewProps {
   topics: Topic[];
   onExport: () => string;
   onImport: (json: string) => Promise<boolean>;
+  onResetStats: () => Promise<void>;
   onReset: () => Promise<void>;
 }
 
-export default function SettingsView({ theme, onToggleTheme, boards, topics, onExport, onImport, onReset }: SettingsViewProps) {
+export default function SettingsView({ theme, onToggleTheme, boards, topics, onExport, onImport, onResetStats, onReset }: SettingsViewProps) {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showResetStatsConfirm, setShowResetStatsConfirm] = useState(false);
   const [exportFeedback, setExportFeedback] = useState(false);
   const [importFeedback, setImportFeedback] = useState<'success' | 'error' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,6 +63,11 @@ export default function SettingsView({ theme, onToggleTheme, boards, topics, onE
     setImportFeedback(success ? 'success' : 'error');
     setTimeout(() => setImportFeedback(null), 3000);
     e.target.value = '';
+  };
+
+  const handleResetStats = async () => {
+    await onResetStats();
+    setShowResetStatsConfirm(false);
   };
 
   const handleReset = async () => {
@@ -146,12 +154,28 @@ export default function SettingsView({ theme, onToggleTheme, boards, topics, onE
           {/* Reset */}
           <div className="flex items-center justify-between p-5">
             <div>
-              <div className="text-sm font-medium text-amber-300">Reset application</div>
+              <div className="text-sm font-medium text-amber-300">Reset statistics</div>
+              <div className="mt-0.5 text-xs text-ink-600">
+                Clear progress, history and status on all topics. Boards and content are kept.
+              </div>
+            </div>
+            <button
+              onClick={() => setShowResetStatsConfirm(true)}
+              className="inline-flex w-28 items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-500/20 active:scale-[0.98]"
+            >
+              <RotateCcw className="h-4 w-4" /> Reset
+            </button>
+          </div>
+
+          {/* Reset all */}
+          <div className="flex items-center justify-between p-5">
+            <div>
+              <div className="text-sm font-medium text-rose-400">Reset application</div>
               <div className="mt-0.5 text-xs text-ink-600">Delete all data and restore defaults. This cannot be undone.</div>
             </div>
             <button
               onClick={() => setShowResetConfirm(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-500/20 active:scale-[0.98]"
+              className="inline-flex w-28 items-center justify-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3.5 py-2 text-sm font-semibold text-rose-400 transition-all hover:bg-rose-500/20 active:scale-[0.98]"
             >
               <Trash2 className="h-4 w-4" /> Reset
             </button>
@@ -210,7 +234,7 @@ export default function SettingsView({ theme, onToggleTheme, boards, topics, onE
         <div className="mt-3 surface rounded-2xl divide-y divide-white/[0.04]">
           <div className="flex items-center justify-between p-4">
             <span className="text-sm text-ink-500">Version</span>
-            <span className="text-sm font-medium tabular-nums text-ink-100">1.0</span>
+            <span className="text-sm font-medium tabular-nums text-ink-100">0.4</span>
           </div>
           <div className="flex items-center justify-between p-4">
             <span className="text-sm text-ink-500">Backend</span>
@@ -229,12 +253,41 @@ export default function SettingsView({ theme, onToggleTheme, boards, topics, onE
         </div>
       </section>
 
+      {/* Reset stats confirmation modal */}
+      {showResetStatsConfirm && (
+        <div className="overlay fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-ink-700 p-6 shadow-lift animate-scale-in">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 ring-1 ring-amber-500/20">
+              <RotateCcw className="h-6 w-6 text-amber-400" />
+            </div>
+            <h3 className="mt-4 text-lg font-semibold text-white">Reset statistics?</h3>
+            <p className="mt-1.5 text-sm text-ink-500">
+              All topics will be reset to <span className="font-medium text-ink-300">To Learn</span>, progress set to 0%, checklists unchecked, and history cleared. Your boards, notes, resources and tags are kept.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowResetStatsConfirm(false)}
+                className="btn-soft flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetStats}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-always-white transition-all hover:bg-amber-600 active:scale-[0.98]"
+              >
+                <RotateCcw className="h-4 w-4" /> Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reset confirmation modal */}
       {showResetConfirm && (
         <div className="overlay fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-ink-700 p-6 shadow-lift animate-scale-in">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 ring-1 ring-amber-500/20">
-              <AlertTriangle className="h-6 w-6 text-amber-400" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 ring-1 ring-rose-500/20">
+              <AlertTriangle className="h-6 w-6 text-rose-400" />
             </div>
             <h3 className="mt-4 text-lg font-semibold text-white">Reset all data?</h3>
             <p className="mt-1.5 text-sm text-ink-500">
@@ -249,7 +302,7 @@ export default function SettingsView({ theme, onToggleTheme, boards, topics, onE
               </button>
               <button
                 onClick={handleReset}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-always-white transition-all hover:bg-amber-600 active:scale-[0.98]"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-500 px-3.5 py-2 text-sm font-semibold text-always-white transition-all hover:bg-rose-600 active:scale-[0.98]"
               >
                 <Trash2 className="h-4 w-4" /> Reset everything
               </button>

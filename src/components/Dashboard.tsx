@@ -2,7 +2,7 @@ import {
   Target, Flame, ChevronRight, Plus,
   CheckCircle, Layers, Layout, Flag,
 } from 'lucide-react';
-import { boardColorMap, statusConfig, topicTypeConfig, HEATMAP_COLORS, BOARD_ICONS } from '../config';
+import { boardColorMap, statusConfig, HEATMAP_COLORS, BOARD_ICONS } from '../config';
 import { generateHeatmap, generateWeeklyActivity, computeStreak } from '../utils/analytics';
 
 import type { Board, Topic } from '../types';
@@ -335,7 +335,6 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
               const s = statusConfig[t.status];
               const b = boards.find((b) => b.id === t.boardId);
               const c = b ? boardColorMap[b.color] : boardColorMap.sky;
-              const tc = topicTypeConfig[t.type];
               return (
                 <button
                   key={t.id}
@@ -345,10 +344,11 @@ export default function Dashboard({ boards, topics, onNavigate, onSelectBoard, o
                   <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-ink-100 group-hover:text-white">{t.title}</div>
+                    {t.description && (
+                      <div className="mt-0.5 truncate text-xs text-ink-500">{t.description}</div>
+                    )}
                     <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-600">
                       <span className={c.text}>{b?.title}</span>
-                      <span className="h-1 w-1 rounded-full bg-ink-700" />
-                      <span>{tc.label}</span>
                       <span className="h-1 w-1 rounded-full bg-ink-700" />
                       <span>{t.updatedAt}</span>
                     </div>

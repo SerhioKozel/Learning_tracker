@@ -1,27 +1,25 @@
 import { useRef, useEffect } from 'react';
 import { Search, Filter } from 'lucide-react';
-import { topicTypeConfig, difficultyConfig } from '../../config';
-import type { Difficulty, TopicType } from '../../types';
+import { difficultyConfig } from '../../config';
+import type { Difficulty } from '../../types';
 
 interface BoardFiltersProps {
   query: string;
   filterDifficulty: Difficulty | null;
-  filterType: TopicType | null;
   filterOpen: boolean;
   onQueryChange: (value: string) => void;
   onFilterOpenChange: (open: boolean) => void;
   onDifficultyChange: (d: Difficulty | null) => void;
-  onTypeChange: (t: TopicType | null) => void;
   onClearAll: () => void;
 }
 
 export default function BoardFilters({
-  query, filterDifficulty, filterType, filterOpen,
+  query, filterDifficulty, filterOpen,
   onQueryChange, onFilterOpenChange,
-  onDifficultyChange, onTypeChange, onClearAll,
+  onDifficultyChange, onClearAll,
 }: BoardFiltersProps) {
   const filterRef = useRef<HTMLDivElement>(null);
-  const activeFilterCount = (filterDifficulty ? 1 : 0) + (filterType ? 1 : 0);
+  const activeFilterCount = filterDifficulty ? 1 : 0;
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -98,28 +96,7 @@ export default function BoardFilters({
                   })}
                 </div>
               </div>
-              {/* Type */}
-              <div>
-                <div className="mb-1.5 text-[10px] font-medium text-ink-500">Type</div>
-                <div className="grid grid-cols-2 gap-1">
-                  {(Object.keys(topicTypeConfig) as TopicType[]).map((type) => {
-                    const cfg = topicTypeConfig[type];
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => onTypeChange(filterType === type ? null : type)}
-                        className={`rounded-md px-2 py-1 text-left text-[10px] transition-colors ${
-                          filterType === type
-                            ? 'bg-sky-500/15 text-sky-300'
-                            : 'text-ink-400 hover:bg-ink-800 hover:text-ink-100'
-                        }`}
-                      >
-                        {cfg.emoji} {cfg.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+
             </div>
           </div>
         )}

@@ -8,15 +8,15 @@ import TopicResources from './drawer/TopicResources';
 import TopicNotes from './drawer/TopicNotes';
 import TopicHistory from './drawer/TopicHistory';
 import { computeStatusChange } from '../utils/status';
-import type { Status, TopicType, Difficulty, Resource, HistoryEntry, Topic, Board } from '../types';
+import type { Status, Difficulty, Resource, HistoryEntry, Topic, Board } from '../types';
 
 interface TopicDrawerProps {
   topic: Topic | null;
   boards: Board[];
   onClose: () => void;
   onUpdate: (id: string, data: Partial<{
-    title: string; description: string; status: Status; type: TopicType;
-    difficulty: Difficulty; tags: string[];
+    title: string; description: string; status: Status;
+    difficulty: Difficulty; tags: string[]; progress: number;
     deadlineDate: string | null; checklist: Topic['checklist'];
     resources: Resource[]; notes: string; history: HistoryEntry[];
   }>) => Promise<void>;
@@ -49,6 +49,7 @@ export default function TopicDrawer({
     { title: '', type: 'url', url: '' },
   );
   const [newTag, setNewTag] = useState('');
+  const [localProgress, setLocalProgress] = useState(topic?.progress ?? 0);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Sync local fields when a different topic is opened
@@ -62,9 +63,10 @@ export default function TopicDrawer({
       setNewChecklistText('');
       setNewResource({ title: '', type: 'url', url: '' });
       setNewTag('');
+      setLocalProgress(topic?.progress ?? 0);
       prevTopicId.current = topic?.id;
     }
-  }, [topic?.id, topic?.title, topic?.description, topic?.notes]);
+  }, [topic?.id, topic?.title, topic?.description, topic?.notes, topic?.progress]);
 
   if (!topic) return null;
 
@@ -144,9 +146,12 @@ export default function TopicDrawer({
             topic={topic}
             board={board}
             newTag={newTag}
-            onTypeChange={(type) => onUpdate(topic.id, { type })}
+            localProgress={localProgress}
+
             onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty })}
             onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null })}
+            onProgressChange={setLocalProgress}
+            onProgressCommit={(value) => onUpdate(topic.id, { progress: value })}
             onNewTagChange={setNewTag}
             onAddTag={() => {
               const tag = newTag.trim().toLowerCase();

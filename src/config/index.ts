@@ -1,5 +1,5 @@
 import { Layout, Network, Binary, Server, Cloud } from 'lucide-react';
-import type { Status, Difficulty, TopicType, Resource, HistoryEntry, BoardColor } from '../types';
+import type { Status, Difficulty, Resource, HistoryEntry, BoardColor } from '../types';
 
 // ─── Board icons ────────────────────────────────────────────────────────────
 // Single source of truth — previously duplicated in BoardView, BoardsList, Dashboard.
@@ -68,21 +68,6 @@ export const STATUS_ORDER: Status[] = ['to_learn', 'learning', 'practice', 'revi
 
 /** Statuses shown in the UI (kanban columns, drawer pills, charts). review is hidden. */
 export const VISIBLE_STATUS_ORDER: Status[] = ['to_learn', 'learning', 'practice', 'completed'];
-
-// ─── Topic types ─────────────────────────────────────────────────────────────
-
-export const topicTypeConfig: Record<TopicType, { icon: string; label: string; emoji: string }> = {
-  learning:      { icon: 'BookOpen',      label: 'Learning',      emoji: '📘' },
-  book:          { icon: 'BookOpen',      label: 'Book',          emoji: '📖' },
-  video:         { icon: 'PlayCircle',    label: 'Video',         emoji: '🎥' },
-  course:        { icon: 'GraduationCap', label: 'Course',        emoji: '🎓' },
-  documentation: { icon: 'BookMarked',    label: 'Docs',          emoji: '📄' },
-  repository:    { icon: 'Code2',         label: 'Repo',          emoji: '📦' },
-  interview:     { icon: 'MessageSquare', label: 'Interview',     emoji: '💬' },
-  certification: { icon: 'Award',         label: 'Cert',          emoji: '🏆' },
-  project:       { icon: 'FolderGit2',    label: 'Project',       emoji: '🔧' },
-  custom:        { icon: 'Star',          label: 'Custom',        emoji: '⭐' },
-};
 
 // ─── Difficulty ───────────────────────────────────────────────────────────────
 

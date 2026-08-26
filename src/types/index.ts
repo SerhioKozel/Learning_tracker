@@ -1,17 +1,5 @@
 export type Status = 'to_learn' | 'learning' | 'practice' | 'review' | 'completed';
 
-export type TopicType =
-  | 'learning'
-  | 'book'
-  | 'video'
-  | 'course'
-  | 'documentation'
-  | 'repository'
-  | 'interview'
-  | 'certification'
-  | 'project'
-  | 'custom';
-
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export interface ChecklistItem {
@@ -41,9 +29,9 @@ export interface Topic {
   description: string;
   status: Status;
   boardId: string;
-  type: TopicType;
   difficulty: Difficulty;
   tags: string[];
+  progress: number;
   /** @deprecated reviewDate is no longer used in MVP — kept for data compatibility only */
   reviewDate: string | null;
   deadlineDate: string | null;

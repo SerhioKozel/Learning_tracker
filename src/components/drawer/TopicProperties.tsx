@@ -1,13 +1,12 @@
-import { ChevronDown, Tag, Plus, X } from 'lucide-react';
-import { topicTypeConfig, difficultyConfig, boardColorMap, statusConfig } from '../../config';
-import type { TopicType, Difficulty, Topic, Board } from '../../types';
+import { Tag, Plus, X } from 'lucide-react';
+import { difficultyConfig, boardColorMap, statusConfig } from '../../config';
+import type { Difficulty, Topic, Board } from '../../types';
 
 interface TopicPropertiesProps {
   topic: Topic;
   board: Board | undefined;
   localProgress: number;
   newTag: string;
-  onTypeChange: (type: TopicType) => void;
   onDifficultyChange: (difficulty: Difficulty) => void;
   onProgressChange: (value: number) => void;
   onProgressCommit: (value: number) => void;
@@ -20,7 +19,7 @@ interface TopicPropertiesProps {
 export default function TopicProperties({
   topic, board,
   localProgress, newTag,
-  onTypeChange, onDifficultyChange,
+  onDifficultyChange,
   onProgressChange, onProgressCommit,
   onDeadlineDateChange,
   onNewTagChange, onAddTag, onRemoveTag,
@@ -32,23 +31,6 @@ export default function TopicProperties({
     <section>
       <h3 className="text-[10px] font-semibold uppercase tracking-wider text-ink-600">Properties</h3>
       <div className="mt-3 space-y-3">
-
-        {/* Type */}
-        <div className="flex items-center gap-3">
-          <span className="w-20 shrink-0 text-xs text-ink-500">Type</span>
-          <div className="relative flex-1">
-            <select
-              value={topic.type}
-              onChange={(e) => onTypeChange(e.target.value as TopicType)}
-              className="w-full appearance-none rounded-lg border border-white/[0.06] bg-ink-800 py-2 pl-3 pr-8 text-sm text-ink-100 transition-colors focus:border-sky-500/30 focus:outline-none"
-            >
-              {Object.entries(topicTypeConfig).map(([key, cfg]) => (
-                <option key={key} value={key} className="bg-ink-700">{cfg.label}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-600" />
-          </div>
-        </div>
 
         {/* Difficulty */}
         <div className="flex items-center gap-3">

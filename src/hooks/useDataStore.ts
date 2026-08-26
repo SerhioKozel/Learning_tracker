@@ -7,7 +7,6 @@ import type {
   Board,
   Topic,
   Status,
-  TopicType,
   Difficulty,
   ChecklistItem,
   Resource,
@@ -32,9 +31,9 @@ interface RawTopic {
   description: string;
   status: string;
   board_id: string;
-  type: string;
   difficulty: string;
   tags: string[] | null;
+  progress: number | null;
   review_date: string | null;
   deadline_date: string | null;
   checklist: ChecklistItem[] | null;
@@ -70,9 +69,9 @@ function mapTopic(raw: RawTopic): Topic {
     description: raw.description,
     status: raw.status as Status,
     boardId: raw.board_id,
-    type: raw.type as TopicType,
     difficulty: raw.difficulty as Difficulty,
     tags: raw.tags ?? [],
+    progress: raw.progress ?? 0,
     reviewDate: raw.review_date,       // preserved for data compatibility, not used in UI
     deadlineDate: raw.deadline_date,
     checklist: raw.checklist ?? [],
@@ -204,7 +203,7 @@ export function useDataStore() {
     if (boardTopics && boardTopics.length > 0) {
       const newTopics = boardTopics.map((t) => ({
         title: t.title, description: t.description, status: t.status,
-        board_id: newBoard.id, type: t.type, difficulty: t.difficulty,
+        board_id: newBoard.id, difficulty: t.difficulty,
         tags: t.tags, review_date: t.review_date,
         deadline_date: t.deadline_date,
         checklist: t.checklist, resources: t.resources, notes: t.notes, history: t.history,
@@ -228,7 +227,7 @@ export function useDataStore() {
       .from('topics')
       .insert({
         title: data.title, description: '', status: data.status ?? 'to_learn',
-        board_id: data.boardId, type: 'learning', difficulty: 'medium',
+        board_id: data.boardId, difficulty: 'medium',
         tags: [], review_date: null, deadline_date: null,
         checklist: [], resources: [],
         notes: '', history, created_at: now, updated_at: now,
@@ -244,7 +243,7 @@ export function useDataStore() {
   const updateTopic = useCallback(async (
     id: string,
     data: Partial<{
-      title: string; description: string; status: Status; type: TopicType;
+      title: string; description: string; status: Status;
       difficulty: Difficulty; tags: string[];
       deadlineDate: string | null; checklist: ChecklistItem[];
       resources: Resource[]; notes: string; history: HistoryEntry[];
@@ -254,7 +253,6 @@ export function useDataStore() {
     if (data.title !== undefined) updates.title = data.title;
     if (data.description !== undefined) updates.description = data.description;
     if (data.status !== undefined) updates.status = data.status;
-    if (data.type !== undefined) updates.type = data.type;
     if (data.difficulty !== undefined) updates.difficulty = data.difficulty;
     if (data.tags !== undefined) updates.tags = data.tags;
     if (data.deadlineDate !== undefined) updates.deadline_date = data.deadlineDate;
@@ -281,7 +279,6 @@ export function useDataStore() {
         description: topic.description,
         status: 'to_learn',
         board_id: topic.boardId,
-        type: topic.type,
         difficulty: topic.difficulty,
         tags: topic.tags,
         review_date: null,
@@ -455,7 +452,7 @@ export function useDataStore() {
           parsed.topics.map((t: Record<string, unknown>) => ({
             id: t.id, title: t.title, description: t.description ?? '',
             status: t.status ?? 'to_learn', board_id: t.boardId ?? t.board_id,
-            type: t.type ?? 'learning', difficulty: t.difficulty ?? 'medium',
+            difficulty: t.difficulty ?? 'medium',
             tags: t.tags ?? [],
             review_date: t.reviewDate ?? t.review_date ?? null,
             deadline_date: t.deadlineDate ?? t.deadline_date ?? null,
@@ -473,6 +470,24 @@ export function useDataStore() {
     }
   }, [fetchAll]);
 
+  const resetStats = useCallback(async (): Promise<void> => {
+    if (topics.length === 0) return;
+    const now = new Date().toISOString();
+    const updates = topics.map((t) =>
+      supabase.from('topics').update({
+        status: 'to_learn',
+        progress: 0,
+        history: [],
+        checklist: t.checklist.map((c) => ({ ...c, done: false })),
+        updated_at: now,
+      }).eq('id', t.id),
+    );
+    const results = await Promise.all(updates);
+    const failed = results.find((r) => r.error);
+    if (failed?.error) { setError(failed.error.message); return; }
+    await fetchAll();
+  }, [topics, fetchAll]);
+
   const resetData = useCallback(async (): Promise<void> => {
     await supabase.from('topics').delete().gte('created_at', '2000-01-01');
     await supabase.from('boards').delete().gte('created_at', '2000-01-01');
@@ -485,7 +500,7 @@ export function useDataStore() {
     createTopic, updateTopic, updateTopicStatus, duplicateTopic, deleteTopic,
     addChecklistItem, deleteChecklistItem, toggleChecklistItem,
     addResource, deleteResource, toggleResource,
-    exportData, importData, resetData,
+    exportData, importData, resetStats, resetData,
   };
 }
 
