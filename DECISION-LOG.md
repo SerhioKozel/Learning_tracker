@@ -5,11 +5,40 @@ New decisions are added here when they are made, not retroactively.
 
 ---
 
+## DL-016 — Supabase Auth: email/password + profiles + role-based RLS
+
+**Date:** 2026-08-26 | **Status:** Completed (BL-011)
+
+**Context:** Приложение использовало `USING (true)` RLS — любой знающий anon key получал полный доступ ко всем данным. Для публичного деплоя необходима изоляция данных пользователей.
+
+**Decision:** Supabase Auth с email/password. Отдельная таблица `profiles` с полем `role: 'user' | 'admin'`. RLS переключён на `auth.uid() = user_id`.
+
+**Ключевые детали:**
+- `profiles` создаётся триггером `on_auth_user_created` автоматически при регистрации
+- `is_admin()` — SECURITY DEFINER функция, читает `profiles.role` без рекурсивного RLS
+- Admin назначается вручную через Supabase Dashboard / SQL — намеренно, без UI
+- `boards` и `topics` получили `user_id uuid NOT NULL REFERENCES auth.users`
+- `tags` — глобальные, без `user_id`; `system` теги защищены от записи пользователями
+- `topic_tags` RLS проверяет ownership через EXISTS на `topics.user_id`
+- `AuthContext` (`src/contexts/AuthContext.tsx`) — провайдер сессии и профиля
+- `ProtectedRoute` / `AdminRoute` — route guards в `src/components/ui/Routes.tsx`
+
+**Trade-offs:**
+- ✅ Полная изоляция данных по пользователям на уровне БД
+- ✅ Admin-роль для платформенной статистики без отдельного сервиса
+- ✅ `AuthContext` изолирован от `useDataStore` — чистое разделение ответственности
+- ❌ Нет OAuth (GitHub/Google) — только email/password в текущей реализации
+- ❌ `topic_tags` RLS использует subquery EXISTS — дополнительный lookup на каждую строку
+
+**Почему не OAuth:** Supabase OAuth требует настройки provider credentials и redirect URLs на каждом окружении. Email/password достаточно для текущего масштаба и проще в деплое.
+
+---
+
+
+
 ## DL-001 — Supabase over LocalStorage
 
 **Date:** 2026-08 | **Status:** Accepted
-
-**Context:** The legacy Angular project used LocalStorage (offline-first). v2 needed cloud persistence.
 
 **Decision:** Supabase (PostgreSQL + REST) with the anon key, no authentication.
 
@@ -258,11 +287,15 @@ All 9 component files that imported from `mockData.ts` were updated. The file wa
 - ❌ `fetchAll` теперь делает 3 запроса вместо 2 (topics, boards, topic_tags)
 - ❌ `updateTopic` при изменении тегов делает delete + upsert + insert в `topic_tags`
 
+---
+
+## DL-014 — `computeStatusChange()` — единая логика смены статуса топика
+
 **Date:** 2026-08 | **Status:** Accepted
 
 **Context:** Статус топика можно сменить двумя путями: через выпадающий список в `TopicDrawer` и через drag-and-drop карточки между колонками (`useDataStore.updateTopicStatus`). Обе реализации независимо дублировали одну и ту же логику — но **разошлись** в поведении: смена через дровер выставляла `progress: 100` при переходе в `completed` и `progress: 0` при переходе в `to_learn`; DnD-путь прогресс вообще не трогал. Итог — топик мог оказаться в статусе `completed` с `progress: 45%`, если его туда перетащили, а не выбрали статус вручную. Записи истории тоже форматировались по-разному (человекочитаемые лейблы vs сырой `status.replace('_', ' ')`).
 
-**Decision:** Общая логика вынесена в чистую функцию `computeStatusChange(topic, newStatus) → { progress, historyEntry }` (`src/utils/status.ts`). Оба места (`TopicDrawer.tsx: handleStatusChange`, `useDataStore.ts: updateTopicStatus`) вызывают её вместо собственной копии логики.
+**Decision:** Общая логика вынесена в чистую функцию `computeStatusChange(topic, newStatus) → { historyEntry }` (`src/utils/status.ts`). Оба места (`TopicDrawer.tsx: handleStatusChange`, `useDataStore.ts: updateTopicStatus`) вызывают её вместо собственной копии логики.
 
 **Trade-offs:**
 - ✅ Оба пути смены статуса теперь гарантированно ведут себя одинаково
@@ -272,7 +305,7 @@ All 9 component files that imported from `mockData.ts` were updated. The file wa
 
 ---
 
-## DL-015 — Удаление поля `type` из топиков
+## DL-017 — Удаление поля `type` из топиков
 
 **Date:** 2026-08 | **Status:** Accepted
 

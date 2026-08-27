@@ -1,7 +1,7 @@
 # Improvement Backlog
 
 **Project:** Learning Tracker (React / Vite / Supabase)  
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-27
 
 ---
 
@@ -35,25 +35,15 @@
 | BL-008 | Empty state — пошаговый онбординг |
 | BL-009 | Drag-and-drop между колонками — `@dnd-kit`, оптимистичный статус, DragOverlay |
 | BL-010 | Supabase Realtime — multi-tab sync, индикатор соединения |
-| BL-013 | Разбить TopicDrawer — вынесен в `src/components/drawer/`: `TopicHeader`, `TopicProperties`, `TopicChecklist`, `TopicResources`, `TopicNotes`, `TopicHistory`. Сам `TopicDrawer.tsx` — тонкий layout-компонент |
-| BL-014 | Разбить BoardView — вынесен в `src/components/board/`: `DraggableCard`, `DroppableColumn`, `CardContent`, `BoardFilters` |
+| BL-011 | Аутентификация — Supabase Auth (email/password), `profiles` таблица с ролями `user`/`admin`, RLS `auth.uid() = user_id`, `AuthContext`, `AuthView`, `AdminView` |
+| BL-013 | Разбить TopicDrawer — вынесен в `src/components/drawer/` |
+| BL-014 | Разбить BoardView — вынесен в `src/components/board/` |
+| TD-21 | Теги переведены с `topics.tags text[]` на `tags` + `topic_tags`. Колонка `topics.tags` удалена миграцией `20260827000000_drop_topics_tags_array.sql`. См. DECISION-LOG DL-015 |
+| TD-23 | `progress` удалён из `Topic`, `RawTopic`, `mapTopic`, `resetStats`, `TopicDrawer`, `TopicProperties` — колонки нет в БД |
 
 ---
 
 ## 🟠 Открытые задачи
-
-### BL-011 — Аутентификация (Supabase Auth)
-
-**Причина:** Для публичного деплоя anon key недостаточен — любой знающий URL получает доступ к данным.  
-**Стратегия:**
-1. `supabase.auth.signInWithOAuth` (GitHub / Google).
-2. `user_id uuid` в таблицы `boards` и `topics`.
-3. RLS: `USING (auth.uid() = user_id)`.
-4. Gate `App.tsx` за проверкой сессии.
-
-**Риск:** Средний — требует миграции схемы и нового UI.
-
----
 
 ### BL-012 — PWA / Offline поддержка
 
@@ -65,53 +55,17 @@
 
 ## 🟡 Технический долг
 
-### ~~TD-21~~ — ✅ Закрыто: `topics.tags text[]` → `topic_tags` + `tags`
+### TD-22 — `reviewDate` помечен `@deprecated`, но остаётся в типе и коде
 
-Завершено 2026-08-27. `useDataStore` переведён на нормализованную схему. Колонка `topics.tags` удалена миграцией `20260827000000_drop_topics_tags_array.sql`. Подробности: DECISION-LOG.md DL-015.
+**Проблема:** `Topic.reviewDate` объявлен с `@deprecated` — поле не используется в UI, но читается из БД в `mapTopic` и сохраняется при импорте ради совместимости данных. Колонка `review_date` в БД существует.
 
-**Диагноз:** В БД сосуществуют два механизма тегов. Расследование показало:
+**Действие:** Принять явное решение — либо удалить поле и колонку (если функциональность review date больше не нужна), либо убрать `@deprecated` и восстановить UI. Текущее состояние "deprecated но сохраняем" — неопределённость.
 
-- `topic_tags` содержит **696 записей** для **352 топиков** — это живые данные с нормализованными названиями (`CI/CD`, `Test Design`, с пробелами и спецсимволами), цветами и slugs
-- `topics.tags text[]` содержит теги для тех же **352 топиков**, но в slug-подобном формате (`CI-CD`, `Test-Design`) — данные не идентичны `topic_tags`
-- `useDataStore` читает и пишет **только** `topics.tags text[]` — то есть UI работает с устаревшей системой и slug-строками вместо нормализованных названий
-- При любом редактировании тегов через UI данные в `topic_tags` не обновляются — расхождение растёт
-
-**Корень проблемы:** При bulk-импорте 23 августа данные залили в обе системы одновременно, но с разным форматированием. `useDataStore` не был переведён на новую систему.
-
-**Действие:** Перевести `useDataStore` на `topic_tags` + `tags`:
-1. `fetchAll` — join `topics` → `topic_tags` → `tags`, собирать теги как `Tag[]` (id, name, slug, color), не как `string[]`
-2. `updateTopic` — при изменении тегов писать в `topic_tags`, не в `topics.tags`
-3. `createTopic` / `duplicateTopic` — создавать записи в `topic_tags`
-4. Обновить тип `Topic.tags: Tag[]` вместо `string[]`
-5. После миграции — удалить колонку `topics.tags text[]` из схемы БД
-
-**Риск:** Высокий — затрагивает `useDataStore`, все компоненты, работающие с тегами (`TopicProperties`, `CardContent`, фильтры), и тип `Topic`. Требует координированного изменения schema + hook + types + UI.
-
----
-
-### TD-22 — `deadline_date` в `topics` не отражена в TypeScript-типе `Topic`... частично
-
-**Проблема:** `deadline_date` присутствует в БД и в `RawTopic`, читается в `mapTopic` как `deadlineDate`, и передаётся в `updateTopic`. Но в `src/types/index.ts` тип `Topic` содержит `deadlineDate: string | null` — это уже корректно. Документация (ARCHITECTURE.md) не отражала это поле — исправлено в текущем обновлении. Фактического tech debt в коде нет, только документационный пробел.
-
----
-
-### TD-23 — `resetStats` пишет несуществующую колонку `progress`
-
-**Проблема:** `resetStats` в `useDataStore.ts` отправляет `{ progress: 0, ... }` в Supabase, но колонки `progress` в таблице `topics` нет. Supabase молча игнорирует неизвестные поля при `update` — запрос не падает, но поведение неочевидно и потенциально маскирует намерение.
-
-Аналогично: `RawTopic` объявляет `progress: number | null` и `mapTopic` возвращает `progress: raw.progress ?? 0`, но в БД этого поля нет — `raw.progress` всегда будет `undefined`, то есть `Topic.progress` всегда `0`.
-
-**Действие:** Либо добавить колонку `progress integer NOT NULL DEFAULT 0` в БД (восстановить намеренную функциональность), либо удалить `progress` из `RawTopic`, `mapTopic`, `Topic` и `resetStats`.
-
-**Риск:** Средний — прогресс-слайдер в UI отображает значение из `Topic.progress`, которое всегда `0`. Пользователь видит прогресс, но он никогда не сохраняется.
+**Риск:** Низкий — не ломает ничего, но вводит в заблуждение.
 
 ---
 
 ## 📝 Зафиксировано, не трогать сейчас
 
-Найдено при аудите — не баги, но стоит иметь в виду при следующей работе с этими типами:
-
-- ~~**`CalendarEvent.type`** объявлял `'review' | 'deadline' | 'completed'`, но `generateCalendarEvents()` генерирует только `'review'` и `'completed'` — вариант `'deadline'` был недостижим и отображался в легенде календаря как никогда не наступающее событие.~~ **Закрыто** — `'deadline'` удалён из типа, `eventTypeConfig` и импортов `CalendarView.tsx`. `AlertCircle` также удалён как ставший мёртвым импорт.
-- **`HistoryEntry.action`** (`src/types/index.ts`) объявляет `'created' | 'updated' | 'moved' | 'progress'`, но код создаёт записи истории только с `'created'` (при создании/дублировании топика) и `'moved'` (при смене статуса). Варианты `'updated'` и `'progress'` никогда не используются — возможно, задумывалась более детальная история изменений (правки полей, прогресса), но её решили не делать. Та же логика: решить явно, не убирать молча.
-
----
+- **`HistoryEntry.action`** объявляет `'created' | 'updated' | 'moved' | 'progress'`, но код создаёт записи только с `'created'` и `'moved'`. Варианты `'updated'` и `'progress'` никогда не используются. Решить явно при следующей работе с историей.
+- **`topic_tags` RLS** — таблица `topic_tags` не имеет собственных RLS-политик (только `USING (true)` по умолчанию). После Auth это потенциальная дыра: пользователь может читать чужие `topic_tags` если знает `topic_id`. Закрыть при следующей работе с RLS.
