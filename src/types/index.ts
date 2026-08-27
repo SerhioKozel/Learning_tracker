@@ -1,3 +1,15 @@
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export type UserRole = 'user' | 'admin';
+
+export interface Profile {
+  id: string;
+  role: UserRole;
+  createdAt: string;
+}
+
+// ─── Domain ───────────────────────────────────────────────────────────────────
+
 export type Status = 'to_learn' | 'learning' | 'practice' | 'review' | 'completed';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';

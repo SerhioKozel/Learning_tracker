@@ -6,8 +6,13 @@ import Dashboard from './components/Dashboard';
 import BoardsList from './components/BoardsList';
 import BoardView from './components/BoardView';
 import TopicDrawer from './components/TopicDrawer';
+import AuthView from './components/AuthView';
+import { ProtectedRoute, AdminRoute } from './components/ui/Routes';
+import { useAuth } from './contexts/AuthContext';
 import { useDataStore } from './hooks/useDataStore';
 import type { Topic } from './types';
+
+const AdminView = lazy(() => import('./components/AdminView'));
 
 const Statistics   = lazy(() => import('./components/Statistics'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
@@ -48,6 +53,7 @@ function BoardViewRoute({
 }
 
 export default function App() {
+  const { session } = useAuth();
   const store = useDataStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -248,52 +254,78 @@ export default function App() {
             </div>
           ) : (
             <Routes>
+              {/* Public — redirect to / if already signed in */}
+              <Route path="/auth" element={
+                session ? <Navigate to="/" replace /> : <AuthView />
+              } />
+
               <Route path="/" element={
-                <Dashboard
-                  boards={store.boards}
-                  topics={store.topics}
-                  onNavigate={(path) => navigate(path)}
-                  onSelectBoard={handleSelectBoard}
-                  onSelectTopic={openTopic}
-                />
-              } />
-              <Route path="/boards" element={
-                <BoardsList
-                  boards={store.boards}
-                  topics={store.topics}
-                  onSelectBoard={handleSelectBoard}
-                  onCreateBoard={store.createBoard}
-                  onUpdateBoard={store.updateBoard}
-                  onDeleteBoard={store.deleteBoard}
-                  onDuplicateBoard={store.duplicateBoard}
-                />
-              } />
-              <Route path="/boards/:boardId" element={
-                <BoardViewRoute store={store} onSelectTopic={openTopic} />
-              } />
-              <Route path="/stats" element={
-                <Suspense fallback={<ViewSpinner />}>
-                  <Statistics boards={store.boards} topics={store.topics} />
-                </Suspense>
-              } />
-              <Route path="/calendar" element={
-                <Suspense fallback={<ViewSpinner />}>
-                  <CalendarView topics={store.topics} boards={store.boards} onSelectTopic={openTopic} />
-                </Suspense>
-              } />
-              <Route path="/settings" element={
-                <Suspense fallback={<ViewSpinner />}>
-                  <SettingsView
-                    theme={theme}
-                    onToggleTheme={toggleTheme}
+                <ProtectedRoute>
+                  <Dashboard
                     boards={store.boards}
                     topics={store.topics}
-                    onExport={store.exportData}
-                    onImport={store.importData}
-                    onResetStats={store.resetStats}
-                    onReset={store.resetData}
+                    onNavigate={(path) => navigate(path)}
+                    onSelectBoard={handleSelectBoard}
+                    onSelectTopic={openTopic}
                   />
-                </Suspense>
+                </ProtectedRoute>
+              } />
+              <Route path="/boards" element={
+                <ProtectedRoute>
+                  <BoardsList
+                    boards={store.boards}
+                    topics={store.topics}
+                    onSelectBoard={handleSelectBoard}
+                    onCreateBoard={store.createBoard}
+                    onUpdateBoard={store.updateBoard}
+                    onDeleteBoard={store.deleteBoard}
+                    onDuplicateBoard={store.duplicateBoard}
+                  />
+                </ProtectedRoute>
+              } />
+              <Route path="/boards/:boardId" element={
+                <ProtectedRoute>
+                  <BoardViewRoute store={store} onSelectTopic={openTopic} />
+                </ProtectedRoute>
+              } />
+              <Route path="/stats" element={
+                <ProtectedRoute>
+                  <Suspense fallback={<ViewSpinner />}>
+                    <Statistics boards={store.boards} topics={store.topics} />
+                  </Suspense>
+                </ProtectedRoute>
+              } />
+              <Route path="/calendar" element={
+                <ProtectedRoute>
+                  <Suspense fallback={<ViewSpinner />}>
+                    <CalendarView topics={store.topics} boards={store.boards} onSelectTopic={openTopic} />
+                  </Suspense>
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <Suspense fallback={<ViewSpinner />}>
+                    <SettingsView
+                      theme={theme}
+                      onToggleTheme={toggleTheme}
+                      boards={store.boards}
+                      topics={store.topics}
+                      onExport={store.exportData}
+                      onImport={store.importData}
+                      onResetStats={store.resetStats}
+                      onReset={store.resetData}
+                    />
+                  </Suspense>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <AdminRoute>
+                    <Suspense fallback={<ViewSpinner />}>
+                      <AdminView />
+                    </Suspense>
+                  </AdminRoute>
+                </ProtectedRoute>
               } />
               {/* Catch-all → dashboard */}
               <Route path="*" element={<Navigate to="/" replace />} />

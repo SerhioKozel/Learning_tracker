@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, KanbanSquare, BarChart3,
-  Calendar, Settings, GraduationCap, Search, Plus,
+  Calendar, Settings, GraduationCap, Search, Plus, LogOut,
 } from 'lucide-react';
 import { boardColorMap } from '../config';
+import { useAuth } from '../contexts/AuthContext';
 import type { Board } from '../types';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const navItems = [
 export default function Sidebar({ boards, loading, realtimeStatus, onClose }: SidebarProps) {
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   const filtered = boards.filter((b) =>
     b.title.toLowerCase().includes(query.toLowerCase()),
@@ -153,33 +155,61 @@ export default function Sidebar({ boards, loading, realtimeStatus, onClose }: Si
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="border-t border-white/[0.06] p-3">
-        <div className="flex items-center gap-3 rounded-lg px-3 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-600 text-xs font-bold text-always-white">
-            LT
-          </div>
-          <div className="min-w-0 flex-1 leading-tight">
-            <div className="truncate text-xs font-medium text-ink-100">Learning Tracker</div>
-            <div className="flex items-center gap-1.5">
-              <span className={`h-1.5 w-1.5 rounded-full transition-colors ${
-                realtimeStatus === 'connected'  ? 'bg-emerald-400' :
-                realtimeStatus === 'connecting' ? 'bg-amber-400 animate-pulse' :
-                                                   'bg-rose-400'
-              }`} />
-              <span className={`truncate text-[10px] transition-colors ${
-                realtimeStatus === 'connected'  ? 'text-emerald-500' :
-                realtimeStatus === 'connecting' ? 'text-amber-500' :
-                                                   'text-rose-500'
-              }`}>
-                {realtimeStatus === 'connected'  ? 'Live · Synced' :
-                 realtimeStatus === 'connecting' ? 'Connecting…' :
-                                                   'Disconnected'}
-              </span>
-            </div>
+      {/* User block — clickable → /settings, sign out separate */}
+      {user && (
+        <div className="shrink-0 border-t border-white/[0.06] p-3">
+          <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+            {/* Avatar — clickable */}
+            <button
+              onClick={() => { navigate('/settings'); onClose?.(); }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
+                         bg-gradient-to-br from-sky-400 to-sky-600
+                         text-xs font-bold text-always-white
+                         transition-opacity hover:opacity-80"
+              title="Open settings"
+            >
+              {user.email?.[0].toUpperCase() ?? '?'}
+            </button>
+
+            {/* Email + realtime status — clickable */}
+            <button
+              onClick={() => { navigate('/settings'); onClose?.(); }}
+              className="min-w-0 flex-1 text-left leading-tight
+                         transition-opacity hover:opacity-80"
+            >
+              <div className="truncate text-xs font-medium text-ink-100">
+                {user.email}
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
+                  realtimeStatus === 'connected'  ? 'bg-emerald-400' :
+                  realtimeStatus === 'connecting' ? 'bg-amber-400 animate-pulse' :
+                                                     'bg-rose-400'
+                }`} />
+                <span className={`truncate text-[10px] transition-colors ${
+                  realtimeStatus === 'connected'  ? 'text-emerald-500' :
+                  realtimeStatus === 'connecting' ? 'text-amber-500' :
+                                                     'text-rose-500'
+                }`}>
+                  {realtimeStatus === 'connected'  ? 'Live · Synced' :
+                   realtimeStatus === 'connecting' ? 'Connecting…' :
+                                                     'Disconnected'}
+                </span>
+              </div>
+            </button>
+
+            {/* Sign out — separate button, does not navigate */}
+            <button
+              onClick={signOut}
+              title="Sign out"
+              className="shrink-0 rounded-md p-1.5 text-ink-600
+                         transition-colors hover:bg-white/[0.06] hover:text-ink-300"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 }

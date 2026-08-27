@@ -231,9 +231,12 @@ export function useDataStore() {
     color: Board['color'];
     icon: string;
   }): Promise<Board | null> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); return null; }
+
     const { data: row, error: err } = await supabase
       .from('boards')
-      .insert({ title: data.title, description: data.description, color: data.color, icon: data.icon })
+      .insert({ title: data.title, description: data.description, color: data.color, icon: data.icon, user_id: user.id })
       .select('*')
       .maybeSingle();
 
@@ -267,9 +270,12 @@ export function useDataStore() {
     const { data: board } = await supabase.from('boards').select('*').eq('id', id).maybeSingle();
     if (!board) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); return; }
+
     const { data: newBoard, error: boardErr } = await supabase
       .from('boards')
-      .insert({ title: `${board.title} (copy)`, description: board.description, color: board.color, icon: board.icon })
+      .insert({ title: `${board.title} (copy)`, description: board.description, color: board.color, icon: board.icon, user_id: user.id })
       .select('*')
       .maybeSingle();
 
@@ -283,6 +289,7 @@ export function useDataStore() {
         review_date: t.review_date,
         deadline_date: t.deadline_date,
         checklist: t.checklist, resources: t.resources, notes: t.notes, history: t.history,
+        user_id: user.id,
       }));
       const { data: insertedTopics } = await supabase.from('topics').insert(newTopics).select('id');
 
@@ -326,6 +333,9 @@ export function useDataStore() {
     const now = new Date().toISOString();
     const history: HistoryEntry[] = [{ id: generateId('h'), action: 'created', detail: 'Topic created', date: now }];
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); return null; }
+
     const { data: row, error: err } = await supabase
       .from('topics')
       .insert({
@@ -334,6 +344,7 @@ export function useDataStore() {
         review_date: null, deadline_date: null,
         checklist: [], resources: [],
         notes: '', history, created_at: now, updated_at: now,
+        user_id: user.id,
       })
       .select('*')
       .maybeSingle();
@@ -380,6 +391,9 @@ export function useDataStore() {
     if (!topic) return null;
     const now = new Date().toISOString();
     const history: HistoryEntry[] = [{ id: generateId('h'), action: 'created', detail: 'Duplicated from topic', date: now }];
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); return null; }
+
     const { data: row, error: err } = await supabase
       .from('topics')
       .insert({
@@ -396,6 +410,7 @@ export function useDataStore() {
         history,
         created_at: now,
         updated_at: now,
+        user_id: user.id,
       })
       .select('*')
       .maybeSingle();
@@ -552,10 +567,14 @@ export function useDataStore() {
       const parsed = JSON.parse(json);
       if (!parsed.boards || !parsed.topics) return false;
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setError('Not authenticated'); return false; }
+
       const { error: boardsErr } = await supabase.from('boards').upsert(
         parsed.boards.map((b: Record<string, unknown>) => ({
           id: b.id, title: b.title, description: b.description ?? '',
           color: b.color ?? 'sky', icon: b.icon ?? 'Layout',
+          user_id: user.id,
         })),
       );
       if (boardsErr) { setError(boardsErr.message); return false; }
@@ -569,6 +588,7 @@ export function useDataStore() {
           deadline_date: t.deadlineDate ?? t.deadline_date ?? null,
           checklist: t.checklist ?? [], resources: t.resources ?? [],
           notes: t.notes ?? '', history: t.history ?? [],
+          user_id: user.id,
         }));
 
         const { error: topicsErr } = await supabase.from('topics').upsert(topicsToUpsert);
