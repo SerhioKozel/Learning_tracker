@@ -16,7 +16,7 @@ interface TopicDrawerProps {
   onClose: () => void;
   onUpdate: (id: string, data: Partial<{
     title: string; description: string; status: Status;
-    difficulty: Difficulty; tags: string[]; progress: number;
+    difficulty: Difficulty; tags: string[];
     deadlineDate: string | null; checklist: Topic['checklist'];
     resources: Resource[]; notes: string; history: HistoryEntry[];
   }>) => Promise<void>;
@@ -49,7 +49,6 @@ export default function TopicDrawer({
     { title: '', type: 'url', url: '' },
   );
   const [newTag, setNewTag] = useState('');
-  const [localProgress, setLocalProgress] = useState(topic?.progress ?? 0);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Sync local fields when a different topic is opened
@@ -63,10 +62,9 @@ export default function TopicDrawer({
       setNewChecklistText('');
       setNewResource({ title: '', type: 'url', url: '' });
       setNewTag('');
-      setLocalProgress(topic?.progress ?? 0);
       prevTopicId.current = topic?.id;
     }
-  }, [topic?.id, topic?.title, topic?.description, topic?.notes, topic?.progress]);
+  }, [topic?.id, topic?.title, topic?.description, topic?.notes]);
 
   if (!topic) return null;
 
@@ -146,12 +144,9 @@ export default function TopicDrawer({
             topic={topic}
             board={board}
             newTag={newTag}
-            localProgress={localProgress}
 
             onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty })}
             onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null })}
-            onProgressChange={setLocalProgress}
-            onProgressCommit={(value) => onUpdate(topic.id, { progress: value })}
             onNewTagChange={setNewTag}
             onAddTag={() => {
               const tag = newTag.trim().toLowerCase();

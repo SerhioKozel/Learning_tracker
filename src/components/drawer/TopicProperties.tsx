@@ -1,15 +1,12 @@
 import { Tag, Plus, X } from 'lucide-react';
-import { difficultyConfig, boardColorMap, statusConfig } from '../../config';
+import { difficultyConfig, boardColorMap } from '../../config';
 import type { Difficulty, Topic, Board } from '../../types';
 
 interface TopicPropertiesProps {
   topic: Topic;
   board: Board | undefined;
-  localProgress: number;
   newTag: string;
   onDifficultyChange: (difficulty: Difficulty) => void;
-  onProgressChange: (value: number) => void;
-  onProgressCommit: (value: number) => void;
   onDeadlineDateChange: (value: string) => void;
   onNewTagChange: (value: string) => void;
   onAddTag: () => void;
@@ -18,14 +15,12 @@ interface TopicPropertiesProps {
 
 export default function TopicProperties({
   topic, board,
-  localProgress, newTag,
+  newTag,
   onDifficultyChange,
-  onProgressChange, onProgressCommit,
   onDeadlineDateChange,
   onNewTagChange, onAddTag, onRemoveTag,
 }: TopicPropertiesProps) {
   const boardColors = board ? boardColorMap[board.color] : boardColorMap.sky;
-  const statusStyle = statusConfig[topic.status];
 
   return (
     <section>
@@ -53,34 +48,6 @@ export default function TopicProperties({
                 </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* Progress — hidden in MVP UI, code preserved for future use */}
-        <div className="hidden">
-          <span className="w-20 shrink-0 text-xs text-ink-500">Progress</span>
-          <div className="flex-1 space-y-1.5">
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-700">
-                <div
-                  className={`h-full rounded-full ${statusStyle.dot} transition-all duration-300`}
-                  style={{ width: `${localProgress}%` }}
-                />
-              </div>
-              <span className="w-9 text-right text-sm font-semibold tabular-nums text-white">
-                {localProgress}%
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={localProgress}
-              onChange={(e) => onProgressChange(Number(e.target.value))}
-              onPointerUp={(e) => onProgressCommit(Number((e.target as HTMLInputElement).value))}
-              className="w-full accent-sky-400"
-            />
           </div>
         </div>
 

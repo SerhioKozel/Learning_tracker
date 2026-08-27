@@ -31,7 +31,6 @@ export interface Topic {
   boardId: string;
   difficulty: Difficulty;
   tags: string[];
-  progress: number;
   /** @deprecated reviewDate is no longer used in MVP — kept for data compatibility only */
   reviewDate: string | null;
   deadlineDate: string | null;

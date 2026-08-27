@@ -27,7 +27,7 @@
 | TASK-17 | `computeStreak` из реальных `updatedAt` |
 | BL-001 | Cap history — `history.slice(-50)` в `updateTopic` |
 | BL-002 | Дублирование топика — `duplicateTopic` + Copy-кнопка |
-| BL-003 | Фильтры в BoardView — по difficulty |
+| BL-003 | Фильтры в BoardView — по difficulty и type |
 | BL-004 | Описание топика редактируемо — textarea + onBlur |
 | BL-005 | React Router v7 — URL-навигация, back button, `?topic=` query param |
 | BL-006 | Lazy loading — Statistics, CalendarView, SettingsView |
@@ -65,7 +65,45 @@
 
 ## 🟡 Технический долг
 
-_Пусто — предыдущие пункты (BL-013, BL-014) выполнены, см. раздел «✅ Выполнено» выше._
+### ~~TD-21~~ — ✅ Закрыто: `topics.tags text[]` → `topic_tags` + `tags`
+
+Завершено 2026-08-27. `useDataStore` переведён на нормализованную схему. Колонка `topics.tags` удалена миграцией `20260827000000_drop_topics_tags_array.sql`. Подробности: DECISION-LOG.md DL-015.
+
+**Диагноз:** В БД сосуществуют два механизма тегов. Расследование показало:
+
+- `topic_tags` содержит **696 записей** для **352 топиков** — это живые данные с нормализованными названиями (`CI/CD`, `Test Design`, с пробелами и спецсимволами), цветами и slugs
+- `topics.tags text[]` содержит теги для тех же **352 топиков**, но в slug-подобном формате (`CI-CD`, `Test-Design`) — данные не идентичны `topic_tags`
+- `useDataStore` читает и пишет **только** `topics.tags text[]` — то есть UI работает с устаревшей системой и slug-строками вместо нормализованных названий
+- При любом редактировании тегов через UI данные в `topic_tags` не обновляются — расхождение растёт
+
+**Корень проблемы:** При bulk-импорте 23 августа данные залили в обе системы одновременно, но с разным форматированием. `useDataStore` не был переведён на новую систему.
+
+**Действие:** Перевести `useDataStore` на `topic_tags` + `tags`:
+1. `fetchAll` — join `topics` → `topic_tags` → `tags`, собирать теги как `Tag[]` (id, name, slug, color), не как `string[]`
+2. `updateTopic` — при изменении тегов писать в `topic_tags`, не в `topics.tags`
+3. `createTopic` / `duplicateTopic` — создавать записи в `topic_tags`
+4. Обновить тип `Topic.tags: Tag[]` вместо `string[]`
+5. После миграции — удалить колонку `topics.tags text[]` из схемы БД
+
+**Риск:** Высокий — затрагивает `useDataStore`, все компоненты, работающие с тегами (`TopicProperties`, `CardContent`, фильтры), и тип `Topic`. Требует координированного изменения schema + hook + types + UI.
+
+---
+
+### TD-22 — `deadline_date` в `topics` не отражена в TypeScript-типе `Topic`... частично
+
+**Проблема:** `deadline_date` присутствует в БД и в `RawTopic`, читается в `mapTopic` как `deadlineDate`, и передаётся в `updateTopic`. Но в `src/types/index.ts` тип `Topic` содержит `deadlineDate: string | null` — это уже корректно. Документация (ARCHITECTURE.md) не отражала это поле — исправлено в текущем обновлении. Фактического tech debt в коде нет, только документационный пробел.
+
+---
+
+### TD-23 — `resetStats` пишет несуществующую колонку `progress`
+
+**Проблема:** `resetStats` в `useDataStore.ts` отправляет `{ progress: 0, ... }` в Supabase, но колонки `progress` в таблице `topics` нет. Supabase молча игнорирует неизвестные поля при `update` — запрос не падает, но поведение неочевидно и потенциально маскирует намерение.
+
+Аналогично: `RawTopic` объявляет `progress: number | null` и `mapTopic` возвращает `progress: raw.progress ?? 0`, но в БД этого поля нет — `raw.progress` всегда будет `undefined`, то есть `Topic.progress` всегда `0`.
+
+**Действие:** Либо добавить колонку `progress integer NOT NULL DEFAULT 0` в БД (восстановить намеренную функциональность), либо удалить `progress` из `RawTopic`, `mapTopic`, `Topic` и `resetStats`.
+
+**Риск:** Средний — прогресс-слайдер в UI отображает значение из `Topic.progress`, которое всегда `0`. Пользователь видит прогресс, но он никогда не сохраняется.
 
 ---
 

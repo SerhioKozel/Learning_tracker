@@ -32,8 +32,6 @@ interface RawTopic {
   status: string;
   board_id: string;
   difficulty: string;
-  tags: string[] | null;
-  progress: number | null;
   review_date: string | null;
   deadline_date: string | null;
   checklist: ChecklistItem[] | null;
@@ -62,7 +60,7 @@ function mapBoard(raw: RawBoard, topics: RawTopic[]): Board {
   };
 }
 
-function mapTopic(raw: RawTopic): Topic {
+function mapTopic(raw: RawTopic, tagNames: string[] = []): Topic {
   return {
     id: raw.id,
     title: raw.title,
@@ -70,8 +68,7 @@ function mapTopic(raw: RawTopic): Topic {
     status: raw.status as Status,
     boardId: raw.board_id,
     difficulty: raw.difficulty as Difficulty,
-    tags: raw.tags ?? [],
-    progress: raw.progress ?? 0,
+    tags: tagNames,
     reviewDate: raw.review_date,       // preserved for data compatibility, not used in UI
     deadlineDate: raw.deadline_date,
     checklist: raw.checklist ?? [],
@@ -82,6 +79,65 @@ function mapTopic(raw: RawTopic): Topic {
     updatedAtRaw: raw.updated_at,
     createdAt: raw.created_at.slice(0, 10),
   };
+}
+
+// ─── Tag helpers ──────────────────────────────────────────────────────────────
+
+/** Converts a tag name to a URL-safe slug: "CI/CD" → "ci-cd", "Test Design" → "test-design" */
+function toSlug(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+/**
+ * Ensures all tag names exist in the `tags` table (upsert by slug).
+ * Returns a map of { name → id } for the given names.
+ */
+async function upsertTags(
+  supabaseClient: typeof supabase,
+  names: string[],
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (names.length === 0) return result;
+
+  const rows = names.map((name) => ({
+    name: name.trim(),
+    slug: toSlug(name),
+    color: '#6b7280',   // default neutral color for user-created tags
+    type: 'custom' as const,
+  }));
+
+  const { data, error } = await supabaseClient
+    .from('tags')
+    .upsert(rows, { onConflict: 'slug', ignoreDuplicates: false })
+    .select('id, name');
+
+  if (error || !data) return result;
+  data.forEach((t: { id: string; name: string }) => result.set(t.name, t.id));
+  return result;
+}
+
+/**
+ * Replaces all topic_tags for a topic with the given tag names.
+ * Upserts tags as needed, then replaces junction rows atomically.
+ */
+async function syncTopicTags(
+  supabaseClient: typeof supabase,
+  topicId: string,
+  tagNames: string[],
+): Promise<void> {
+  // Delete existing associations
+  await supabaseClient.from('topic_tags').delete().eq('topic_id', topicId);
+
+  if (tagNames.length === 0) return;
+
+  const nameToId = await upsertTags(supabaseClient, tagNames);
+  const rows = tagNames
+    .filter((name) => nameToId.has(name))
+    .map((name) => ({ topic_id: topicId, tag_id: nameToId.get(name)! }));
+
+  if (rows.length > 0) {
+    await supabaseClient.from('topic_tags').insert(rows);
+  }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -96,9 +152,10 @@ export function useDataStore() {
     setLoading(true);
     setError(null);
 
-    const [topicsResult, boardsResult] = await Promise.all([
+    const [topicsResult, boardsResult, topicTagsResult] = await Promise.all([
       supabase.from('topics').select('*').order('updated_at', { ascending: false }),
       supabase.from('boards').select('*').order('updated_at', { ascending: false }),
+      supabase.from('topic_tags').select('topic_id, tags(name)'),
     ]);
 
     if (topicsResult.error || boardsResult.error) {
@@ -110,7 +167,16 @@ export function useDataStore() {
     const rawTopics = (topicsResult.data as RawTopic[]) ?? [];
     const rawBoards = (boardsResult.data as RawBoard[]) ?? [];
 
-    setTopics(rawTopics.map(mapTopic));
+    // Build topic_id → tag names map from the join result
+    const tagsByTopic = new Map<string, string[]>();
+    const topicTagRows = (topicTagsResult.data ?? []) as Array<{ topic_id: string; tags: { name: string }[] }>;
+    topicTagRows.forEach((row) => {
+      const names = tagsByTopic.get(row.topic_id) ?? [];
+      names.push(...row.tags.map((tag) => tag.name));
+      tagsByTopic.set(row.topic_id, names);
+    });
+
+    setTopics(rawTopics.map((raw) => mapTopic(raw, tagsByTopic.get(raw.id) ?? [])));
     setBoards(rawBoards.map((b) => mapBoard(b, rawTopics)));
     setLoading(false);
   }, []);
@@ -204,11 +270,38 @@ export function useDataStore() {
       const newTopics = boardTopics.map((t) => ({
         title: t.title, description: t.description, status: t.status,
         board_id: newBoard.id, difficulty: t.difficulty,
-        tags: t.tags, review_date: t.review_date,
+        review_date: t.review_date,
         deadline_date: t.deadline_date,
         checklist: t.checklist, resources: t.resources, notes: t.notes, history: t.history,
       }));
-      await supabase.from('topics').insert(newTopics);
+      const { data: insertedTopics } = await supabase.from('topics').insert(newTopics).select('id');
+
+      // Copy topic_tags for each duplicated topic
+      if (insertedTopics && insertedTopics.length > 0) {
+        const { data: sourceTags } = await supabase
+          .from('topic_tags')
+          .select('topic_id, tags(name)')
+          .in('topic_id', boardTopics.map((t) => t.id));
+
+        if (sourceTags && sourceTags.length > 0) {
+          // Map old topic id → new topic id by position
+          const idMap = new Map(boardTopics.map((t, i) => [t.id, insertedTopics[i]?.id]));
+
+          await Promise.all(
+            insertedTopics.map((newTopic, i) => {
+              const oldId = boardTopics[i]?.id;
+              const tagNames = (sourceTags as Array<{ topic_id: string; tags: { name: string }[] }>)
+                .filter((r) => r.topic_id === oldId)
+                .flatMap((r) => r.tags.map((tag) => tag.name));
+              return tagNames.length > 0
+                ? syncTopicTags(supabase, newTopic.id, tagNames)
+                : Promise.resolve();
+            }),
+          );
+
+          void idMap; // referenced above, suppress unused warning
+        }
+      }
     }
     await fetchAll();
   }, [fetchAll]);
@@ -228,7 +321,7 @@ export function useDataStore() {
       .insert({
         title: data.title, description: '', status: data.status ?? 'to_learn',
         board_id: data.boardId, difficulty: 'medium',
-        tags: [], review_date: null, deadline_date: null,
+        review_date: null, deadline_date: null,
         checklist: [], resources: [],
         notes: '', history, created_at: now, updated_at: now,
       })
@@ -254,7 +347,6 @@ export function useDataStore() {
     if (data.description !== undefined) updates.description = data.description;
     if (data.status !== undefined) updates.status = data.status;
     if (data.difficulty !== undefined) updates.difficulty = data.difficulty;
-    if (data.tags !== undefined) updates.tags = data.tags;
     if (data.deadlineDate !== undefined) updates.deadline_date = data.deadlineDate;
     if (data.checklist !== undefined) updates.checklist = data.checklist;
     if (data.resources !== undefined) updates.resources = data.resources;
@@ -264,6 +356,12 @@ export function useDataStore() {
 
     const { error: err } = await supabase.from('topics').update(updates).eq('id', id);
     if (err) { setError(err?.message ?? 'Failed to update topic'); return; }
+
+    // Tags are stored in topic_tags, not in the topics row
+    if (data.tags !== undefined) {
+      await syncTopicTags(supabase, id, data.tags);
+    }
+
     await fetchAll();
   }, [fetchAll]);
 
@@ -280,7 +378,6 @@ export function useDataStore() {
         status: 'to_learn',
         board_id: topic.boardId,
         difficulty: topic.difficulty,
-        tags: topic.tags,
         review_date: null,
         deadline_date: null,
         checklist: topic.checklist.map((c) => ({ ...c, done: false })),
@@ -293,8 +390,14 @@ export function useDataStore() {
       .select('*')
       .maybeSingle();
     if (err || !row) { setError(err?.message ?? 'Failed to duplicate topic'); return null; }
+
+    // Copy tags to the new topic via topic_tags
+    if (topic.tags.length > 0) {
+      await syncTopicTags(supabase, (row as RawTopic).id, topic.tags);
+    }
+
     await fetchAll();
-    return mapTopic(row as RawTopic);
+    return mapTopic(row as RawTopic, topic.tags);
   }, [topics, fetchAll]);
 
   // Optimistic status update — used by DnD drag-and-drop
@@ -448,19 +551,26 @@ export function useDataStore() {
       if (boardsErr) { setError(boardsErr.message); return false; }
 
       if (parsed.topics.length > 0) {
-        const { error: topicsErr } = await supabase.from('topics').upsert(
-          parsed.topics.map((t: Record<string, unknown>) => ({
-            id: t.id, title: t.title, description: t.description ?? '',
-            status: t.status ?? 'to_learn', board_id: t.boardId ?? t.board_id,
-            difficulty: t.difficulty ?? 'medium',
-            tags: t.tags ?? [],
-            review_date: t.reviewDate ?? t.review_date ?? null,
-            deadline_date: t.deadlineDate ?? t.deadline_date ?? null,
-            checklist: t.checklist ?? [], resources: t.resources ?? [],
-            notes: t.notes ?? '', history: t.history ?? [],
-          })),
-        );
+        const topicsToUpsert = parsed.topics.map((t: Record<string, unknown>) => ({
+          id: t.id, title: t.title, description: t.description ?? '',
+          status: t.status ?? 'to_learn', board_id: t.boardId ?? t.board_id,
+          difficulty: t.difficulty ?? 'medium',
+          review_date: t.reviewDate ?? t.review_date ?? null,
+          deadline_date: t.deadlineDate ?? t.deadline_date ?? null,
+          checklist: t.checklist ?? [], resources: t.resources ?? [],
+          notes: t.notes ?? '', history: t.history ?? [],
+        }));
+
+        const { error: topicsErr } = await supabase.from('topics').upsert(topicsToUpsert);
         if (topicsErr) { setError(topicsErr.message); return false; }
+
+        // Sync tags for each topic via topic_tags
+        await Promise.all(
+          parsed.topics.map((t: Record<string, unknown>) => {
+            const tagNames = Array.isArray(t.tags) ? (t.tags as string[]) : [];
+            return syncTopicTags(supabase, t.id as string, tagNames);
+          }),
+        );
       }
 
       await fetchAll();
@@ -476,7 +586,6 @@ export function useDataStore() {
     const updates = topics.map((t) =>
       supabase.from('topics').update({
         status: 'to_learn',
-        progress: 0,
         history: [],
         checklist: t.checklist.map((c) => ({ ...c, done: false })),
         updated_at: now,

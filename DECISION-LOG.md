@@ -232,7 +232,31 @@ All 9 component files that imported from `mockData.ts` were updated. The file wa
 
 ---
 
-## DL-014 — `computeStatusChange()` — единая логика смены статуса топика
+## DL-015 — Миграция тегов: `topics.tags text[]` → `tags` + `topic_tags`
+
+**Date:** 2026-08-27 | **Status:** Completed (TD-21)
+
+**Context:** При аудите обнаружено, что таблицы `tags` и `topic_tags` существовали в БД и содержали 696 записей для 352 топиков, но `useDataStore` читал и писал исключительно в `topics.tags text[]`. Данные в двух системах расходились по формату: `text[]` хранил slug-подобные строки (`CI-CD`), `topic_tags` — нормализованные имена (`CI/CD`). При любом редактировании тегов через UI данные в `topic_tags` не обновлялись.
+
+**Decision:** Перевести `useDataStore` на `tags` + `topic_tags` как единственный источник данных о тегах. Удалить колонку `topics.tags text[]`.
+
+**Изменения:**
+- `fetchAll` — добавлен join `topic_tags(tags(name))`, тег-имена передаются в `mapTopic`
+- `updateTopic` — при `data.tags` вызывает `syncTopicTags` вместо записи в `topics.tags`
+- `createTopic` — `tags: []` убрано из insert (новый топик создаётся без тегов)
+- `duplicateTopic`, `duplicateBoard` — теги копируются через `syncTopicTags`
+- `importData` — теги синхронизируются через `syncTopicTags` после upsert topics
+- `upsertTags` — upsert тегов по slug с `type: 'custom'`, возвращает `name → id` map
+- `syncTopicTags` — атомарная замена всех `topic_tags` для топика
+- Миграция `20260827000000_drop_topics_tags_array.sql` — удаляет `topics.tags`
+- `Topic.tags: string[]` — тип не изменился, теперь содержит `tags.name` из join
+
+**Trade-offs:**
+- ✅ Единый источник правды для тегов
+- ✅ Теги с цветом, slug, `type: system | custom` — фундамент для Knowledge Library
+- ✅ `Topic.tags: string[]` в UI не изменился — все компоненты работают без правок
+- ❌ `fetchAll` теперь делает 3 запроса вместо 2 (topics, boards, topic_tags)
+- ❌ `updateTopic` при изменении тегов делает delete + upsert + insert в `topic_tags`
 
 **Date:** 2026-08 | **Status:** Accepted
 

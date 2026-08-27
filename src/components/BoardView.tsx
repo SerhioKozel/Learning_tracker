@@ -16,7 +16,7 @@ import DraggableCard from './board/DraggableCard';
 import DroppableColumn from './board/DroppableColumn';
 import CardContent from './board/CardContent';
 import BoardFilters from './board/BoardFilters';
-import type { Status, Difficulty, TopicType, Topic, Board } from '../types';
+import type { Status, Difficulty, Topic, Board } from '../types';
 
 interface BoardViewProps {
   boardId: string | null;
@@ -36,7 +36,6 @@ export default function BoardView({
   const [query, setQuery] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterDifficulty, setFilterDifficulty] = useState<Difficulty | null>(null);
-  const [filterType, setFilterType] = useState<TopicType | null>(null);
   const [newTopicCol, setNewTopicCol] = useState<Status | null>(null);
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -103,7 +102,6 @@ export default function BoardView({
     if (query && !t.title.toLowerCase().includes(query.toLowerCase())
       && !t.tags.some((tag) => tag.toLowerCase().includes(query.toLowerCase()))) return false;
     if (filterDifficulty && t.difficulty !== filterDifficulty) return false;
-    if (filterType && t.type !== filterType) return false;
     return true;
   });
 
@@ -155,13 +153,11 @@ export default function BoardView({
         <BoardFilters
           query={query}
           filterDifficulty={filterDifficulty}
-          filterType={filterType}
           filterOpen={filterOpen}
           onQueryChange={setQuery}
           onFilterOpenChange={setFilterOpen}
           onDifficultyChange={setFilterDifficulty}
-          onTypeChange={setFilterType}
-          onClearAll={() => { setFilterDifficulty(null); setFilterType(null); }}
+          onClearAll={() => { setFilterDifficulty(null); }}
         />
       </div>
 
