@@ -81,6 +81,16 @@ function mapTopic(raw: RawTopic, tagNames: string[] = []): Topic {
   };
 }
 
+type TopicTagRow = {
+  topic_id: string;
+  tags: { name: string } | { name: string }[] | null;
+};
+
+function getTagNames(tags: TopicTagRow['tags']): string[] {
+  if (!tags) return [];
+  return Array.isArray(tags) ? tags.map((tag) => tag.name) : [tags.name];
+}
+
 // ─── Tag helpers ──────────────────────────────────────────────────────────────
 
 /** Converts a tag name to a URL-safe slug: "CI/CD" → "ci-cd", "Test Design" → "test-design" */
@@ -169,10 +179,10 @@ export function useDataStore() {
 
     // Build topic_id → tag names map from the join result
     const tagsByTopic = new Map<string, string[]>();
-    const topicTagRows = (topicTagsResult.data ?? []) as Array<{ topic_id: string; tags: { name: string }[] }>;
+    const topicTagRows = (topicTagsResult.data ?? []) as TopicTagRow[];
     topicTagRows.forEach((row) => {
       const names = tagsByTopic.get(row.topic_id) ?? [];
-      names.push(...row.tags.map((tag) => tag.name));
+      names.push(...getTagNames(row.tags));
       tagsByTopic.set(row.topic_id, names);
     });
 
@@ -290,9 +300,9 @@ export function useDataStore() {
           await Promise.all(
             insertedTopics.map((newTopic, i) => {
               const oldId = boardTopics[i]?.id;
-              const tagNames = (sourceTags as Array<{ topic_id: string; tags: { name: string }[] }>)
+              const tagNames = (sourceTags as TopicTagRow[])
                 .filter((r) => r.topic_id === oldId)
-                .flatMap((r) => r.tags.map((tag) => tag.name));
+                .flatMap((r) => getTagNames(r.tags));
               return tagNames.length > 0
                 ? syncTopicTags(supabase, newTopic.id, tagNames)
                 : Promise.resolve();
