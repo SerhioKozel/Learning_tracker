@@ -2,20 +2,28 @@ import type { Topic, CalendarEvent } from '../types';
 
 const HEATMAP_CELLS = 252; // 36 weeks × 7 days
 
+/**
+ * Returns all study activity dates from a topic's history.
+ * Only 'moved' and 'updated' actions count as real learning activity.
+ * 'created' is excluded — adding a topic is not studying it.
+ */
+export function getStudyDates(topic: Topic): Date[] {
+  return topic.history
+    .filter((h) => h.action === 'moved' || h.action === 'updated')
+    .map((h) => new Date(h.date))
+    .filter((d) => !isNaN(d.getTime()));
+}
+
 export function generateHeatmap(topics: Topic[]): number[] {
   const days: number[] = new Array(HEATMAP_CELLS).fill(0);
   const now = new Date();
 
   for (const t of topics) {
-    const d = new Date(t.updatedAtRaw);
-    const daysAgo = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-    const idx = HEATMAP_CELLS - 1 - daysAgo;
-    if (idx >= 0 && idx < HEATMAP_CELLS) days[idx] = Math.min(4, days[idx] + 1);
-
-    const cd = new Date(t.createdAt);
-    const cDaysAgo = Math.floor((now.getTime() - cd.getTime()) / (1000 * 60 * 60 * 24));
-    const cIdx = HEATMAP_CELLS - 1 - cDaysAgo;
-    if (cIdx >= 0 && cIdx < HEATMAP_CELLS && days[cIdx] < 2) days[cIdx] = Math.min(4, days[cIdx] + 1);
+    for (const d of getStudyDates(t)) {
+      const daysAgo = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+      const idx = HEATMAP_CELLS - 1 - daysAgo;
+      if (idx >= 0 && idx < HEATMAP_CELLS) days[idx] = Math.min(4, days[idx] + 1);
+    }
   }
 
   return days;
@@ -38,18 +46,13 @@ export function generateWeeklyActivity(
     let updated = 0;
 
     for (const t of topics) {
-      // Count status moves from history entries in this week
-      const movedInWeek = t.history.filter((h) => {
-        if (h.action !== 'moved') return false;
+      for (const h of t.history) {
+        if (h.action !== 'moved' && h.action !== 'updated') continue;
         const d = new Date(h.date);
-        return d >= weekStart && d < weekEnd;
-      }).length;
-      moved += movedInWeek;
-
-      // Count as "updated" if updatedAtRaw falls in this week but had no move
-      const updatedAt = new Date(t.updatedAtRaw);
-      if (updatedAt >= weekStart && updatedAt < weekEnd && movedInWeek === 0) {
-        updated += 1;
+        if (d >= weekStart && d < weekEnd) {
+          if (h.action === 'moved') moved++;
+          else updated++;
+        }
       }
     }
 
@@ -67,10 +70,12 @@ export function generateWeeklyActivity(
 export function computeStreak(topics: Topic[]): { current: number; best: number } {
   if (topics.length === 0) return { current: 0, best: 0 };
 
+  // Collect all unique days with real study activity across all topics
   const activeDays = new Set<string>();
   for (const t of topics) {
-    const d = new Date(t.updatedAtRaw);
-    if (!isNaN(d.getTime())) activeDays.add(d.toISOString().slice(0, 10));
+    for (const d of getStudyDates(t)) {
+      activeDays.add(d.toISOString().slice(0, 10));
+    }
   }
 
   const sorted = Array.from(activeDays).sort();

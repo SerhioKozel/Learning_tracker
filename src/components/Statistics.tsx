@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Clock, Target, Award, Flame, Layers } from 'lucide-react';
 import { HEATMAP_COLORS, VISIBLE_STATUS_ORDER } from '../config';
-import { generateHeatmap, generateWeeklyActivity, computeStreak } from '../utils/analytics';
+import { generateHeatmap, generateWeeklyActivity, computeStreak, getStudyDates } from '../utils/analytics';
 import { STATUS_PROGRESS } from '../utils/status';
 import type { Board, Topic } from '../types';
 
@@ -273,10 +273,10 @@ function WeekBars({ topics, inView }: { topics: Topic[]; inView: boolean }) {
     dayStart.setDate(weekStart.getDate() + i);
     const dayEnd = new Date(dayStart);
     dayEnd.setDate(dayStart.getDate() + 1);
-    return topics.filter((t) => {
-      const d = new Date(t.updatedAtRaw);
-      return d >= dayStart && d < dayEnd;
-    }).length;
+    // Count unique topics that had real study activity on this day
+    return topics.filter((t) =>
+      getStudyDates(t).some((d) => d >= dayStart && d < dayEnd),
+    ).length;
   });
 
   const maxC = Math.max(...counts, 1);
@@ -495,14 +495,16 @@ export default function Statistics({ topics, boards }: StatisticsProps) {
           <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-3">
             <span className="text-xs text-ink-600">Total this week</span>
             <span className="text-sm font-bold tabular-nums text-white">
-              {topics.filter((t) => {
-                const d = new Date(t.updatedAtRaw);
+              {(() => {
                 const now = new Date();
                 const wStart = new Date(now);
                 wStart.setDate(now.getDate() - (now.getDay() + 6) % 7);
                 wStart.setHours(0, 0, 0, 0);
-                return d >= wStart;
-              }).length}
+                // Count unique topics with real study activity this week
+                return topics.filter((t) =>
+                  getStudyDates(t).some((d) => d >= wStart),
+                ).length;
+              })()}
             </span>
           </div>
         </div>

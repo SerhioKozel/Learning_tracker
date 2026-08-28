@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { timeAgo } from '../utils/date';
 import { generateId } from '../utils/id';
-import { computeStatusChange } from '../utils/status';
+import { computeStatusChange, computeFieldUpdates } from '../utils/status';
 import type {
   Board,
   Topic,
@@ -362,6 +362,7 @@ export function useDataStore() {
       deadlineDate: string | null; checklist: ChecklistItem[];
       resources: Resource[]; notes: string; history: HistoryEntry[];
     }>,
+    currentTopic?: Topic,
   ): Promise<void> => {
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (data.title !== undefined) updates.title = data.title;
@@ -372,8 +373,24 @@ export function useDataStore() {
     if (data.checklist !== undefined) updates.checklist = data.checklist;
     if (data.resources !== undefined) updates.resources = data.resources;
     if (data.notes !== undefined) updates.notes = data.notes;
+
+    // Auto-generate 'updated' history entries for tracked fields when currentTopic is provided
+    let newHistory = data.history;
+    if (currentTopic) {
+      const fieldEntries = computeFieldUpdates(currentTopic, {
+        title: data.title,
+        description: data.description,
+        difficulty: data.difficulty,
+        deadlineDate: data.deadlineDate,
+        tags: data.tags,
+      });
+      if (fieldEntries.length > 0) {
+        newHistory = [...currentTopic.history, ...(data.history ?? []), ...fieldEntries];
+      }
+    }
+
     // Cap history at 50 entries to prevent unbounded JSONB growth (BL-001)
-    if (data.history !== undefined) updates.history = data.history.slice(-50);
+    if (newHistory !== undefined) updates.history = newHistory.slice(-50);
 
     const { error: err } = await supabase.from('topics').update(updates).eq('id', id);
     if (err) { setError(err?.message ?? 'Failed to update topic'); return; }
@@ -612,18 +629,35 @@ export function useDataStore() {
 
   const resetStats = useCallback(async (): Promise<void> => {
     if (topics.length === 0) return;
-    const now = new Date().toISOString();
-    const updates = topics.map((t) =>
-      supabase.from('topics').update({
-        status: 'to_learn',
-        history: [],
-        checklist: t.checklist.map((c) => ({ ...c, done: false })),
-        updated_at: now,
-      }).eq('id', t.id),
-    );
-    const results = await Promise.all(updates);
-    const failed = results.find((r) => r.error);
-    if (failed?.error) { setError(failed.error.message); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); return; }
+
+    // Reset status and history without touching updated_at —
+    // updated_at is used as a proxy for "user activity" in analytics.
+    // Writing now() here would create a false activity spike for all 352 topics.
+    const { error: statusErr } = await supabase
+      .from('topics')
+      .update({ status: 'to_learn', history: [] })
+      .eq('user_id', user.id);
+
+    if (statusErr) { setError(statusErr.message); return; }
+
+    // Reset checklists individually — only for topics that have checked items
+    // (Supabase can't do per-row JSONB updates in a single query)
+    const topicsWithChecked = topics.filter((t) => t.checklist.some((c) => c.done));
+    if (topicsWithChecked.length > 0) {
+      const results = await Promise.all(
+        topicsWithChecked.map((t) =>
+          supabase
+            .from('topics')
+            .update({ checklist: t.checklist.map((c) => ({ ...c, done: false })) })
+            .eq('id', t.id),
+        ),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) { setError(failed.error.message); return; }
+    }
+
     await fetchAll();
   }, [topics, fetchAll]);
 

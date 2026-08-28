@@ -19,7 +19,7 @@ interface TopicDrawerProps {
     difficulty: Difficulty; tags: string[];
     deadlineDate: string | null; checklist: Topic['checklist'];
     resources: Resource[]; notes: string; history: HistoryEntry[];
-  }>) => Promise<void>;
+  }>, currentTopic?: Topic) => Promise<void>;
   onAddChecklistItem: (topicId: string, text: string) => Promise<void>;
   onDeleteChecklistItem: (topicId: string, itemId: string) => Promise<void>;
   onToggleChecklistItem: (topicId: string, itemId: string) => Promise<void>;
@@ -84,7 +84,7 @@ export default function TopicDrawer({
     setEditingTitle(false);
     const trimmed = title.trim();
     if (trimmed && trimmed !== topic.title) {
-      onUpdate(topic.id, { title: trimmed });
+      onUpdate(topic.id, { title: trimmed }, topic);
     } else {
       setTitle(topic.title);
     }
@@ -130,7 +130,7 @@ export default function TopicDrawer({
           }}
           onDescriptionChange={setDescription}
           onDescriptionBlur={() => {
-            if (description !== topic.description) onUpdate(topic.id, { description });
+            if (description !== topic.description) onUpdate(topic.id, { description }, topic);
           }}
           onStatusChange={handleStatusChange}
           onDuplicate={() => onDuplicateTopic(topic.id).then(onClose)}
@@ -145,16 +145,16 @@ export default function TopicDrawer({
             board={board}
             newTag={newTag}
 
-            onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty })}
-            onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null })}
+            onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty }, topic)}
+            onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null }, topic)}
             onNewTagChange={setNewTag}
             onAddTag={() => {
               const tag = newTag.trim().toLowerCase();
               if (!tag || topic.tags.includes(tag)) return;
-              onUpdate(topic.id, { tags: [...topic.tags, tag] });
+              onUpdate(topic.id, { tags: [...topic.tags, tag] }, topic);
               setNewTag('');
             }}
-            onRemoveTag={(tag) => onUpdate(topic.id, { tags: topic.tags.filter((t) => t !== tag) })}
+            onRemoveTag={(tag) => onUpdate(topic.id, { tags: topic.tags.filter((t) => t !== tag) }, topic)}
           />
 
           {DIVIDER}
