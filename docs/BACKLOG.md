@@ -1,7 +1,7 @@
 # Improvement Backlog
 
 **Project:** Learning Tracker (React / Vite / Supabase)  
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-28
 
 ---
 
@@ -35,25 +35,19 @@
 | BL-008 | Empty state — пошаговый онбординг |
 | BL-009 | Drag-and-drop между колонками — `@dnd-kit`, оптимистичный статус, DragOverlay |
 | BL-010 | Supabase Realtime — multi-tab sync, индикатор соединения |
-| BL-013 | Разбить TopicDrawer — вынесен в `src/components/drawer/`: `TopicHeader`, `TopicProperties`, `TopicChecklist`, `TopicResources`, `TopicNotes`, `TopicHistory`. Сам `TopicDrawer.tsx` — тонкий layout-компонент |
-| BL-014 | Разбить BoardView — вынесен в `src/components/board/`: `DraggableCard`, `DroppableColumn`, `CardContent`, `BoardFilters` |
+| BL-011 | Аутентификация — Supabase Auth (email/password), `profiles` таблица с ролями `user`/`admin`, RLS `auth.uid() = user_id`, `AuthContext`, `AuthView`, `AdminView` |
+| BL-013 | Разбить TopicDrawer — вынесен в `src/components/drawer/` |
+| BL-014 | Разбить BoardView — вынесен в `src/components/board/` |
+| BL-016 | Knowledge Library — `library_topics` + `library_topic_tags`, `useLibraryStore`, `LibraryView` (`/library`), "Add to Board" (существующая доска или создание новой, предупреждение о дубликатах), admin CRUD в `AdminView`, сидинг из существующих 352 топиков. См. DECISION-LOG DL-018 |
+| TD-21 | Теги переведены с `topics.tags text[]` на `tags` + `topic_tags`. Колонка `topics.tags` удалена миграцией `20260827000000_drop_topics_tags_array.sql`. См. DECISION-LOG DL-015 |
+| TD-23 | `progress` удалён из `Topic`, `RawTopic`, `mapTopic`, `resetStats`, `TopicDrawer`, `TopicProperties` — колонки нет в БД |
+| TD-24 | Аналитика (`generateHeatmap`, `generateWeeklyActivity`, `computeStreak`, `WeekBars`) переведена с `updatedAtRaw`/`createdAt` на `history` (`moved`/`updated` записи) — создание/импорт топика больше не создаёт ложную активность на графиках |
+| TD-25 | `resetStats` — batch update вместо N параллельных запросов; больше не пишет `updated_at`, чтобы не загрязнять историю активности |
+| — | `computeFieldUpdates` (`src/utils/status.ts`) — `updateTopic` теперь пишет `'updated'` history-записи при изменении title/description/difficulty/deadlineDate/tags |
 
 ---
 
 ## 🟠 Открытые задачи
-
-### BL-011 — Аутентификация (Supabase Auth)
-
-**Причина:** Для публичного деплоя anon key недостаточен — любой знающий URL получает доступ к данным.  
-**Стратегия:**
-1. `supabase.auth.signInWithOAuth` (GitHub / Google).
-2. `user_id uuid` в таблицы `boards` и `topics`.
-3. RLS: `USING (auth.uid() = user_id)`.
-4. Gate `App.tsx` за проверкой сессии.
-
-**Риск:** Средний — требует миграции схемы и нового UI.
-
----
 
 ### BL-012 — PWA / Offline поддержка
 
@@ -65,15 +59,17 @@
 
 ## 🟡 Технический долг
 
-_Пусто — предыдущие пункты (BL-013, BL-014) выполнены, см. раздел «✅ Выполнено» выше._
+### TD-22 — `reviewDate` помечен `@deprecated`, но остаётся в типе и коде
+
+**Проблема:** `Topic.reviewDate` объявлен с `@deprecated` — поле не используется в UI, но читается из БД в `mapTopic` и сохраняется при импорте ради совместимости данных. Колонка `review_date` в БД существует.
+
+**Действие:** Принять явное решение — либо удалить поле и колонку (если функциональность review date больше не нужна), либо убрать `@deprecated` и восстановить UI. Текущее состояние "deprecated но сохраняем" — неопределённость.
+
+**Риск:** Низкий — не ломает ничего, но вводит в заблуждение.
 
 ---
 
 ## 📝 Зафиксировано, не трогать сейчас
 
-Найдено при аудите — не баги, но стоит иметь в виду при следующей работе с этими типами:
-
-- ~~**`CalendarEvent.type`** объявлял `'review' | 'deadline' | 'completed'`, но `generateCalendarEvents()` генерирует только `'review'` и `'completed'` — вариант `'deadline'` был недостижим и отображался в легенде календаря как никогда не наступающее событие.~~ **Закрыто** — `'deadline'` удалён из типа, `eventTypeConfig` и импортов `CalendarView.tsx`. `AlertCircle` также удалён как ставший мёртвым импорт.
-- **`HistoryEntry.action`** (`src/types/index.ts`) объявляет `'created' | 'updated' | 'moved' | 'progress'`, но код создаёт записи истории только с `'created'` (при создании/дублировании топика) и `'moved'` (при смене статуса). Варианты `'updated'` и `'progress'` никогда не используются — возможно, задумывалась более детальная история изменений (правки полей, прогресса), но её решили не делать. Та же логика: решить явно, не убирать молча.
-
----
+- **`HistoryEntry.action`** объявляет `'created' | 'updated' | 'moved' | 'progress'`, но код создаёт записи только с `'created'` и `'moved'`. Варианты `'updated'` и `'progress'` никогда не используются. Решить явно при следующей работе с историей.
+- **`topic_tags` RLS** — таблица `topic_tags` не имеет собственных RLS-политик (только `USING (true)` по умолчанию). После Auth это потенциальная дыра: пользователь может читать чужие `topic_tags` если знает `topic_id`. Закрыть при следующей работе с RLS.

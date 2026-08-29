@@ -50,9 +50,27 @@ export interface Topic {
   resources: Resource[];
   notes: string;
   history: HistoryEntry[];
+  /** Set when this topic was copied from the Knowledge Library. Null for manually created topics. */
+  libraryTopicId: string | null;
   updatedAt: string;
   updatedAtRaw: string;
   createdAt: string;
+}
+
+// ─── Knowledge Library ──────────────────────────────────────────────────────
+// Global, curated topics any user can copy into their own boards.
+// Deliberately minimal — no status/progress/checklist/notes/history,
+// since those are per-user learning state, not library content.
+
+export interface LibraryTopic {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: Difficulty;
+  category: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type BoardColor = 'sky' | 'cyan' | 'teal' | 'emerald' | 'amber' | 'orange' | 'rose' | 'violet' | 'indigo';

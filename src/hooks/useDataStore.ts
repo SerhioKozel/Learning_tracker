@@ -11,6 +11,7 @@ import type {
   ChecklistItem,
   Resource,
   HistoryEntry,
+  LibraryTopic,
 } from '../types';
 
 // ─── Raw Supabase row shapes ──────────────────────────────────────────────────
@@ -38,6 +39,7 @@ interface RawTopic {
   resources: Resource[] | null;
   notes: string | null;
   history: HistoryEntry[] | null;
+  library_topic_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -75,6 +77,7 @@ function mapTopic(raw: RawTopic, tagNames: string[] = []): Topic {
     resources: raw.resources ?? [],
     notes: raw.notes ?? '',
     history: raw.history ?? [],
+    libraryTopicId: raw.library_topic_id,
     updatedAt: timeAgo(raw.updated_at),
     updatedAtRaw: raw.updated_at,
     createdAt: raw.created_at.slice(0, 10),
@@ -442,6 +445,66 @@ export function useDataStore() {
     return mapTopic(row as RawTopic, topic.tags);
   }, [topics, fetchAll]);
 
+  /**
+   * Copies a Knowledge Library topic into the user's own topics, attached to
+   * the given board. The copy is fully independent — editing it afterwards
+   * never touches the library source (DL-018).
+   */
+  const addTopicFromLibrary = useCallback(async (
+    libraryTopic: LibraryTopic,
+    boardId: string,
+  ): Promise<Topic | null> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); return null; }
+
+    const now = new Date().toISOString();
+    const history: HistoryEntry[] = [{
+      id: generateId('h'),
+      action: 'created',
+      detail: `Added from Knowledge Library: ${libraryTopic.title}`,
+      date: now,
+    }];
+
+    const { data: row, error: err } = await supabase
+      .from('topics')
+      .insert({
+        title: libraryTopic.title,
+        description: libraryTopic.description,
+        status: 'to_learn',
+        board_id: boardId,
+        difficulty: libraryTopic.difficulty,
+        review_date: null,
+        deadline_date: null,
+        checklist: [],
+        resources: [],
+        notes: '',
+        history,
+        library_topic_id: libraryTopic.id,
+        created_at: now,
+        updated_at: now,
+        user_id: user.id,
+      })
+      .select('*')
+      .maybeSingle();
+    if (err || !row) { setError(err?.message ?? 'Failed to add topic from library'); return null; }
+
+    if (libraryTopic.tags.length > 0) {
+      await syncTopicTags(supabase, (row as RawTopic).id, libraryTopic.tags);
+    }
+
+    await fetchAll();
+    return mapTopic(row as RawTopic, libraryTopic.tags);
+  }, [fetchAll]);
+
+  /**
+   * Checks whether the user already has a topic copied from this library topic,
+   * on any board. Used to warn before adding a duplicate (does not block it —
+   * the same library topic may legitimately belong on more than one board).
+   */
+  const findExistingCopy = useCallback((libraryTopicId: string): Topic | undefined => {
+    return topics.find((t) => t.libraryTopicId === libraryTopicId);
+  }, [topics]);
+
   // Optimistic status update — used by DnD drag-and-drop
   const updateTopicStatus = useCallback(async (id: string, status: Status): Promise<void> => {
     const topic = topics.find((t) => t.id === id);
@@ -671,6 +734,7 @@ export function useDataStore() {
     boards, topics, loading, error, realtimeStatus, refresh: fetchAll,
     createBoard, updateBoard, deleteBoard, duplicateBoard,
     createTopic, updateTopic, updateTopicStatus, duplicateTopic, deleteTopic,
+    addTopicFromLibrary, findExistingCopy,
     addChecklistItem, deleteChecklistItem, toggleChecklistItem,
     addResource, deleteResource, toggleResource,
     exportData, importData, resetStats, resetData,

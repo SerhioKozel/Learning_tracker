@@ -1,7 +1,7 @@
 # Improvement Backlog
 
 **Project:** Learning Tracker (React / Vite / Supabase)  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 ---
 
@@ -38,8 +38,13 @@
 | BL-011 | Аутентификация — Supabase Auth (email/password), `profiles` таблица с ролями `user`/`admin`, RLS `auth.uid() = user_id`, `AuthContext`, `AuthView`, `AdminView` |
 | BL-013 | Разбить TopicDrawer — вынесен в `src/components/drawer/` |
 | BL-014 | Разбить BoardView — вынесен в `src/components/board/` |
+| BL-016 | Knowledge Library — `library_topics` + `library_topic_tags`, `useLibraryStore`, `LibraryView` (`/library`), "Add to Board" (существующая доска или создание новой, предупреждение о дубликатах), сидинг из существующих 352 топиков. См. DECISION-LOG DL-018 |
+| BL-017 | Admin panel переструктурирован в хаб — `AdminView` (плитки разделов) + `AdminLibraryView` (`/admin/library`, сортировка по Title/Category/Difficulty/Tags, поиск). Исправлен баг с невидимыми модалками (`animate-fade-up` на корневом div ломал `position: fixed` у вложенных модалок). См. DECISION-LOG DL-019 |
 | TD-21 | Теги переведены с `topics.tags text[]` на `tags` + `topic_tags`. Колонка `topics.tags` удалена миграцией `20260827000000_drop_topics_tags_array.sql`. См. DECISION-LOG DL-015 |
 | TD-23 | `progress` удалён из `Topic`, `RawTopic`, `mapTopic`, `resetStats`, `TopicDrawer`, `TopicProperties` — колонки нет в БД |
+| TD-24 | Аналитика (`generateHeatmap`, `generateWeeklyActivity`, `computeStreak`, `WeekBars`) переведена с `updatedAtRaw`/`createdAt` на `history` (`moved`/`updated` записи) — создание/импорт топика больше не создаёт ложную активность на графиках |
+| TD-25 | `resetStats` — batch update вместо N параллельных запросов; больше не пишет `updated_at`, чтобы не загрязнять историю активности |
+| — | `computeFieldUpdates` (`src/utils/status.ts`) — `updateTopic` теперь пишет `'updated'` history-записи при изменении title/description/difficulty/deadlineDate/tags |
 
 ---
 

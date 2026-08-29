@@ -5,7 +5,65 @@ New decisions are added here when they are made, not retroactively.
 
 ---
 
-## DL-016 — Supabase Auth: email/password + profiles + role-based RLS
+## DL-019 — Admin panel restructured as a hub; fixed a fixed-position modal bug
+
+**Date:** 2026-08-28 | **Status:** Accepted
+
+**Context:** After shipping the Knowledge Library admin section (DL-018), every modal opened from `AdminView` or `LibraryView` rendered only a dark backdrop — the modal content itself was invisible, with no console error. Root cause: `position: fixed` on an element is positioned relative to the nearest ancestor with a non-`none` `transform` (or `filter`/`perspective`/`will-change: transform`), not the viewport, if such an ancestor exists. Both `AdminView.tsx` and `LibraryView.tsx` applied `animate-fade-up` (which ends on `transform: translateY(0)` with `fill-mode: both`, so the transform persists after the animation completes) directly on the page's root `<div>`, and the modals were rendered as descendants of that same div. This broke their `fixed inset-0` positioning. Existing modals elsewhere in the app (`BoardsList`, `BoardView`, `TopicDrawer`, the header's "New topic" modal) were unaffected because `animate-fade-up` was only ever applied to inner content blocks, never to an ancestor of a modal.
+
+**Decision:** Moved `animate-fade-up` off the root page `<div>` in `AdminView.tsx`, `LibraryView.tsx`, and the new `AdminLibraryView.tsx`, onto an inner wrapper that excludes the modal-rendering subtree. Modals now render as direct children of the (untransformed) root div, matching the pattern already used everywhere else in the codebase.
+
+**Also decided (product request):** Restructured `/admin` from a single page with an inline Knowledge Library section into a hub: `AdminView` shows section tiles (visual style matches `BoardsList` board cards), each navigating to its own route. `Knowledge Library` moved to `/admin/library` (`AdminLibraryView.tsx`), keeping table sorting (by Title/Category/Difficulty/Tags, click-to-toggle direction) and search (across title, category, difficulty, tags) that didn't exist in the original inline version. A disabled "Users" tile marks where the Stage 2 (BL-015) platform-stats section will attach, without building it yet.
+
+**Trade-offs:**
+- ✅ Fixes a real, silent bug — no console error made this hard to diagnose without DOM inspection
+- ✅ Admin sections now scale without `AdminView` accumulating unrelated inline UI
+- ✅ Table sorting/search were missing from the original Library admin table — added as part of this pass
+- ❌ One more route + one more file (`AdminLibraryView.tsx`) — acceptable, mirrors the hub pattern intentionally
+- ❌ This CSS pitfall (transformed ancestor breaking `position: fixed`) is not enforced by any lint rule — future modal-containing components could reintroduce it if `animate-fade-up` (or any transform-based animation) is placed on a shared root ancestor
+
+---
+
+
+
+**Date:** 2026-08-28 | **Status:** Accepted
+
+## DL-018 — Knowledge Library: separate table + full copy on add, not a live reference
+
+**Date:** 2026-08-28 | **Status:** Accepted
+
+**Context:** Product wants a global, curated set of topics ("Knowledge Library") that any user can browse and add to their own boards, without turning the tracker into a shared multi-user learning system. Prior analysis (see conversation history) considered extending `topics` with an `is_library` flag versus a separate table, and a live-reference model versus copy-on-add.
+
+**Decision:**
+- **Separate tables**: `library_topics` + `library_topic_tags`, not an extension of `topics`. Library topics have no status/progress/checklist/notes/history — those are per-user learning state, and mixing them into `topics` would create a table with two incompatible row shapes.
+- **Full copy, not live reference**: adding a library topic to a board calls `addTopicFromLibrary`, which inserts a normal row into `topics` with `library_topic_id` set to the source. After that, the user's copy is completely independent — editing it never touches the library topic, and editing/deleting the library topic never touches existing copies (`ON DELETE SET NULL` on `library_topic_id`).
+- **Tags reused via a new junction, not the existing one**: `topic_tags.topic_id` has an FK to `topics(id)` — library topics physically cannot be referenced there. `library_topic_tags` mirrors the same pattern against `library_topics(id)`, reusing the same global `tags` table.
+- **`category` as a plain string**, not a new `Category` entity. Seeded from existing board titles (JavaScript, Docker & CI/CD, etc.) — no need for a hierarchy or metadata table yet.
+- **RLS**: `SELECT` open to all authenticated users; `INSERT`/`UPDATE`/`DELETE` restricted to `is_admin()` (reusing the function from DL-016).
+- **Duplicate handling**: `findExistingCopy(libraryTopicId)` checks if the user already has a copy anywhere; the UI warns but does not block — the same library topic may legitimately belong on more than one board.
+- **Seed data**: one-time migration deduplicates existing `topics` by title, using the parent board's title as `category` and carrying over tags via `topic_tags` — reusing real content instead of writing placeholder seed data.
+
+**New hook, not an extension of `useDataStore`:** `useLibraryStore` is separate because library data has a different lifecycle — read-mostly, no Realtime subscription needed, no optimistic updates. Mixing it into `useDataStore` would grow that hook's scope beyond "the user's own data."
+
+**Admin UI placement:** Library CRUD initially lived as an inline section inside `AdminView.tsx`, since `AdminView` was an empty placeholder (Stage 2 / BL-015) and `AdminRoute` already gates it. Moved to its own route (`/admin/library`) shortly after — see DL-019.
+
+**Trade-offs:**
+- ✅ Adding/removing/editing library content never risks corrupting user data
+- ✅ No new abstractions beyond what the schema already needed (tags, RLS, is_admin())
+- ✅ Seed migration reuses real, already-curated content instead of fabricated placeholder data
+- ❌ Editing a library topic does not propagate to topics already copied from it — by design, but means library curation improvements don't reach existing users automatically
+- ❌ Two near-identical tag-sync helpers now exist (`syncTopicTags` in useDataStore, `syncLibraryTopicTags` in useLibraryStore) — acceptable duplication given the two hooks are intentionally decoupled
+
+**What was deliberately deferred (not designed yet):**
+- Curated Tracks (bundles of library topics, e.g. "Frontend Developer")
+- Prerequisite relationships between library topics
+- Versioning of library topics
+- Propagating library edits to already-copied user topics
+- AI-assisted library content generation
+
+---
+
+
 
 **Date:** 2026-08-26 | **Status:** Completed (BL-011)
 

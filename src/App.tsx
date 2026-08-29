@@ -13,10 +13,12 @@ import { useDataStore } from './hooks/useDataStore';
 import type { Topic } from './types';
 
 const AdminView = lazy(() => import('./components/AdminView'));
+const AdminLibraryView = lazy(() => import('./components/AdminLibraryView'));
 
 const Statistics   = lazy(() => import('./components/Statistics'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
 const SettingsView = lazy(() => import('./components/SettingsView'));
+const LibraryView  = lazy(() => import('./components/LibraryView'));
 
 export type Theme = 'dark' | 'light';
 
@@ -288,6 +290,13 @@ export default function App() {
                   <BoardViewRoute store={store} onSelectTopic={openTopic} />
                 </ProtectedRoute>
               } />
+              <Route path="/library" element={
+                <ProtectedRoute>
+                  <Suspense fallback={<ViewSpinner />}>
+                    <LibraryView store={store} />
+                  </Suspense>
+                </ProtectedRoute>
+              } />
               <Route path="/stats" element={
                 <ProtectedRoute>
                   <Suspense fallback={<ViewSpinner />}>
@@ -323,6 +332,15 @@ export default function App() {
                   <AdminRoute>
                     <Suspense fallback={<ViewSpinner />}>
                       <AdminView />
+                    </Suspense>
+                  </AdminRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/library" element={
+                <ProtectedRoute>
+                  <AdminRoute>
+                    <Suspense fallback={<ViewSpinner />}>
+                      <AdminLibraryView />
                     </Suspense>
                   </AdminRoute>
                 </ProtectedRoute>

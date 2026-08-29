@@ -2,7 +2,7 @@
 
 **Project:** Learning Tracker  
 **Stack:** React 18 · TypeScript · Vite · Tailwind CSS · Supabase  
-**Last Updated:** 2026-08-27
+**Last Updated:** 2026-08-28
 
 ---
 
@@ -36,16 +36,17 @@ src/
 ├── config/
 │   └── index.ts          # Semantic config maps + shared constants
 ├── utils/
-│   ├── analytics.ts      # Heatmap, weekly activity, streak
+│   ├── analytics.ts      # Heatmap, weekly activity, streak — derived from history, not updatedAt
 │   ├── date.ts           # timeAgo
 │   ├── id.ts             # generateId (crypto.randomUUID)
-│   └── status.ts         # computeStatusChange — shared by TopicDrawer and DnD
+│   └── status.ts         # computeStatusChange, computeFieldUpdates — shared by TopicDrawer and DnD
 ├── lib/
 │   └── supabase.ts       # Supabase client singleton
 ├── contexts/
 │   └── AuthContext.tsx   # AuthProvider + useAuth hook
 ├── hooks/
-│   └── useDataStore.ts   # All remote state and mutations
+│   ├── useDataStore.ts    # All remote state and mutations for the user's own boards/topics
+│   └── useLibraryStore.ts # Knowledge Library data — separate lifecycle, read-mostly (DL-018)
 ├── components/
 │   ├── ui/
 │   │   ├── ConfirmDialog.tsx
@@ -62,8 +63,10 @@ src/
 │   ├── Statistics.tsx
 │   ├── CalendarView.tsx
 │   ├── SettingsView.tsx
+│   ├── LibraryView.tsx   # Knowledge Library — browse + "Add to Board" (DL-018)
 │   ├── AuthView.tsx      # Sign-in / sign-up / reset-password UI
-│   ├── AdminView.tsx     # Admin-only: platform statistics
+│   ├── AdminView.tsx     # Admin hub — section tiles (Knowledge Library, Users placeholder)
+│   ├── AdminLibraryView.tsx # Admin: Knowledge Library CRUD, sort/search (/admin/library)
 │   └── DesignSystem.tsx  # Reference only — no route, unreachable from the UI
 ├── App.tsx               # Root layout, routing, modals, shortcuts
 ├── main.tsx
@@ -95,7 +98,8 @@ Topic
   checklist: ChecklistItem[]        ← JSONB
   resources: Resource[]             ← JSONB
   notes: string
-  history: HistoryEntry[]           ← JSONB (last 50)
+  history: HistoryEntry[]           ← JSONB (last 50); 'moved'/'updated' entries drive analytics
+  libraryTopicId: uuid | null       ← set if this topic was copied from the Knowledge Library
   updatedAt (formatted), updatedAtRaw (ISO), createdAt
 
 Tag                                 ← global, shared across all users
@@ -108,6 +112,18 @@ TopicTag                            ← junction: Topic ↔ Tag (cascade delete 
   tagId → Tag
   createdAt
 
+LibraryTopic                        ← global, curated; read by all, written by admins only (DL-018)
+  id, title, description
+  difficulty: easy | medium | hard
+  category: string                  ← plain string, no separate entity (e.g. "JavaScript", "Docker")
+  tags: string[]                    ← names from library_topic_tags join
+  createdAt, updatedAt
+
+LibraryTopicTag                     ← junction: LibraryTopic ↔ Tag (cascade delete both sides)
+  libraryTopicId → LibraryTopic
+  tagId → Tag
+  createdAt
+
 Profile                             ← one row per auth.users entry (created by trigger)
   id → auth.users
   role: user | admin
@@ -115,6 +131,8 @@ Profile                             ← one row per auth.users entry (created by
 ```
 
 **Note — два механизма тегов, данные расходятся (tech debt TD-21 — закрыто):** Миграция на `tags` + `topic_tags` завершена. `topics.tags text[]` удалена. `useDataStore` читает теги через join `topic_tags → tags`.
+
+**Note — Knowledge Library is copy-on-add, not a live reference (DL-018):** Adding a library topic to a board creates a fully independent row in `topics` with `libraryTopicId` set to the source. Editing either side afterwards never affects the other. If the library topic is later deleted, `libraryTopicId` is set to `NULL` on existing copies (`ON DELETE SET NULL`) — they are unaffected otherwise.
 
 All domain types live in `src/types/index.ts`.  
 All semantic mappings (labels, colors, icons per status/type/difficulty) live in `src/config/index.ts`.
@@ -147,8 +165,10 @@ Passes all data and callbacks downward as props. No context, no global store.
 | `Statistics.tsx` | Weekly activity chart, status donut, board progress, difficulty distribution |
 | `CalendarView.tsx` | Monthly calendar with deadline date events |
 | `SettingsView.tsx` | Theme toggle, JSON export/import, data reset |
+| `LibraryView.tsx` | Knowledge Library — browse by category, search, "Add to Board" flow (new or existing board) |
 | `AuthView.tsx` | Sign-in / sign-up / reset-password forms |
-| `AdminView.tsx` | Admin-only view: platform-wide statistics across all users |
+| `AdminView.tsx` | Admin hub — section tiles navigating to dedicated admin screens (visual style matches board cards) |
+| `AdminLibraryView.tsx` | Admin: Knowledge Library CRUD — table with sortable columns (Title/Category/Difficulty/Tags) and search |
 
 ### `src/components/board/` — BoardView sub-components (BL-014)
 
@@ -304,6 +324,30 @@ CREATE TABLE profiles (
   role       text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- library_topics (global, curated — read by all, written by admins only)
+CREATE TABLE library_topics (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title       text NOT NULL,
+  description text NOT NULL DEFAULT '',
+  difficulty  text NOT NULL DEFAULT 'medium' CHECK (difficulty IN ('easy', 'medium', 'hard')),
+  category    text NOT NULL DEFAULT '',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- library_topic_tags (junction: LibraryTopic ↔ Tag — separate from topic_tags,
+-- since topic_tags.topic_id has an FK to topics(id) and cannot reference library_topics)
+CREATE TABLE library_topic_tags (
+  library_topic_id uuid NOT NULL REFERENCES library_topics(id) ON DELETE CASCADE,
+  tag_id           uuid NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (library_topic_id, tag_id)
+);
+
+-- topics.library_topic_id — set when a topic was copied from the Knowledge Library.
+-- ON DELETE SET NULL: deleting the library topic does not delete or corrupt user copies.
+ALTER TABLE topics ADD COLUMN library_topic_id uuid REFERENCES library_topics(id) ON DELETE SET NULL;
 ```
 
 `checklist`, `resources`, `history` are JSONB arrays — avoids junction tables for sub-items. See [DECISION-LOG.md](./DECISION-LOG.md#dl-005) for rationale.
@@ -324,10 +368,12 @@ React Router v7 (`react-router-dom`) with `BrowserRouter` mounted in `main.tsx`.
 /              → Dashboard         (protected)
 /boards        → BoardsList        (protected)
 /boards/:id    → BoardView         (protected)
+/library       → LibraryView       (protected — all authenticated users)
 /stats         → Statistics        (protected)
 /calendar      → CalendarView      (protected)
 /settings      → SettingsView      (protected)
-/admin         → AdminView         (admin only)
+/admin         → AdminView         (admin only — hub with section tiles)
+/admin/library → AdminLibraryView  (admin only — Knowledge Library CRUD)
 *              → redirect to /
 ```
 
@@ -355,6 +401,8 @@ Authentication is handled by Supabase Auth (email/password). RLS is enabled on a
 | `topics` | Own rows; admin reads all | Own rows only |
 | `tags` | All authenticated users | `custom` tags: any authenticated user; `system` tags: admin only |
 | `topic_tags` | Own topics' associations | Own topics' associations |
+| `library_topics` | All authenticated users | Admin only |
+| `library_topic_tags` | All authenticated users | Admin only |
 | `profiles` | Own row only | Not writable by users — role changes via SQL only |
 
 The `is_admin()` helper function (SECURITY DEFINER) reads `profiles.role` without a recursive RLS check.
@@ -375,3 +423,5 @@ Unauthenticated requests are blocked at the application level (`ProtectedRoute` 
 | 2 | No offline support — requires network | BL-012 |
 | 3 | `history` array capped at 50 entries (older entries discarded) | BL-001 ✅ |
 | 4 | `topic_tags` RLS subquery (EXISTS on topics) — one extra lookup per row on read | Acceptable at current scale |
+| 5 | Editing/deleting a library topic does not propagate to topics already copied from it | By design (DL-018) — copy-on-add is intentionally one-directional |
+| 6 | **CSS pitfall, not lint-enforced:** placing a transform-based animation class (e.g. `animate-fade-up`) on a page's root `<div>` breaks `position: fixed` for any modal rendered as its descendant — the modal positions relative to that ancestor instead of the viewport. Apply such classes to inner content wrappers only, never to an ancestor of a modal. | DL-019 |

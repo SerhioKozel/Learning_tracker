@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, KanbanSquare, BarChart3,
-  Calendar, Settings, GraduationCap, Search, Plus, LogOut,
+  Calendar, Settings, GraduationCap, Search, Plus, LogOut, Library, ShieldCheck,
 } from 'lucide-react';
 import { boardColorMap } from '../config';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,6 +18,7 @@ interface SidebarProps {
 const navItems = [
   { to: '/',         label: 'Dashboard',  icon: LayoutDashboard, end: true },
   { to: '/boards',   label: 'Boards',     icon: KanbanSquare,    end: false },
+  { to: '/library',  label: 'Library',    icon: Library,         end: true },
   { to: '/stats',    label: 'Statistics', icon: BarChart3,       end: true },
   { to: '/calendar', label: 'Calendar',   icon: Calendar,        end: true },
   { to: '/settings', label: 'Settings',   icon: Settings,        end: true },
@@ -26,7 +27,7 @@ const navItems = [
 export default function Sidebar({ boards, loading, realtimeStatus, onClose }: SidebarProps) {
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
 
   const filtered = boards.filter((b) =>
     b.title.toLowerCase().includes(query.toLowerCase()),
@@ -77,6 +78,34 @@ export default function Sidebar({ boards, loading, realtimeStatus, onClose }: Si
             )}
           </NavLink>
         ))}
+        {role === 'admin' && (
+          <NavLink
+            to="/admin"
+            onClick={onClose}
+            className={({ isActive }) =>
+              `group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                isActive
+                  ? 'bg-white/[0.07] text-white'
+                  : 'text-ink-400 hover:bg-white/[0.04] hover:text-ink-100'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-sky-400" />
+                )}
+                <ShieldCheck
+                  className={`h-[18px] w-[18px] transition-colors ${
+                    isActive ? 'text-sky-400' : 'text-ink-500 group-hover:text-ink-200'
+                  }`}
+                  strokeWidth={2}
+                />
+                Admin
+              </>
+            )}
+          </NavLink>
+        )}
       </nav>
 
       {/* Boards list */}

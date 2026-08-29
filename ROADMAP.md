@@ -1,11 +1,11 @@
 # Roadmap
 
 **Project:** Learning Tracker  
-**Last Updated:** 2026-08-27
+**Last Updated:** 2026-08-28
 
 ---
 
-## Currently Built (v2.3)
+## Currently Built (v2.4)
 
 ### Core
 
@@ -38,9 +38,9 @@
 
 ### Dashboard & Analytics
 
-- [x] Real streak — computed from `updatedAt` timestamps
-- [x] Real weekly activity — counted from actual data, no random padding
-- [x] Activity heatmap (36 weeks)
+- [x] Real streak — computed from real study activity (`history` entries: status moves + field edits, not raw timestamps)
+- [x] Real weekly activity — counted from `history`, no random padding, no false spikes from topic creation/import
+- [x] Activity heatmap (36 weeks) — derived from `history`
 - [x] Upcoming deadlines panel
 - [x] Recently updated topics
 - [x] Board overview grid
@@ -78,7 +78,17 @@
 - [x] RLS — `topic_tags` scoped to topic owner
 - [x] `AuthContext` + `useAuth` hook
 - [x] `ProtectedRoute` / `AdminRoute` wrappers
-- [x] `AdminView` — platform-wide statistics for admins
+- [x] `AdminView` — hub with section tiles (Knowledge Library live; Users placeholder for Stage 2 / BL-015)
+
+### Knowledge Library
+
+- [x] `library_topics` + `library_topic_tags` — global, curated topics with normalised tags
+- [x] `LibraryView` (`/library`) — browse by category, search, tag filter
+- [x] "Add to Board" — copy a library topic into an existing board or a newly created one
+- [x] Duplicate warning — non-blocking; the same library topic may be added to more than one board
+- [x] Admin CRUD for library topics — dedicated `/admin/library` screen, reached from the Admin hub, with sortable columns and search
+- [x] Seeded from existing topics — deduplicated by title, category = source board title, tags carried over
+- [x] Copy-on-add — user's copy is fully independent; editing either side never affects the other
 
 ### Infrastructure
 
@@ -99,8 +109,10 @@
 
 | ID | Feature | Priority | Notes |
 |----|---------|----------|-------|
-| — | Knowledge Library | High | Architecture analysed — foundation ready (Auth + normalised tags). First slice: `library_topics` table + `/library` route + "Add to Board" flow. |
 | BL-012 | PWA / Offline support | Low | High complexity. Needs design work on conflict resolution with optimistic updates (DL-007) before implementation. |
+| — | Curated Tracks (e.g. "Frontend Developer") | Future | Deliberately deferred until Knowledge Library usage patterns are clearer (DL-018). |
+| — | Prerequisite relationships between library topics | Future | Deliberately deferred (DL-018). |
+| — | Propagate library topic edits to already-copied user topics | Future | Deliberately deferred — copy-on-add is intentionally one-directional (DL-018). |
 
 ---
 
