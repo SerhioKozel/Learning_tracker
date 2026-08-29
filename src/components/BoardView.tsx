@@ -168,7 +168,8 @@ export default function BoardView({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="min-h-0 flex-1 overflow-x-auto px-8 py-6">
+        {/* Remount the Kanban columns when the board changes so each board keeps an independent scroll position. */}
+        <div key={board.id} className="min-h-0 flex-1 overflow-x-auto px-8 py-6">
           <div className="flex h-full gap-4">
             {COLUMN_ORDER.map((status) => {
               const s = statusConfig[status];
