@@ -5,6 +5,16 @@ import type { Topic } from '../../types';
 export default function CardContent({ topic }: { topic: Topic }) {
   const d = difficultyConfig[topic.difficulty];
 
+  const hasChecklist = topic.checklist.length > 0;
+  const doneCount = topic.checklist.filter((c) => c.done).length;
+  const totalCount = topic.checklist.length;
+  const pct = hasChecklist ? Math.round((doneCount / totalCount) * 100) : 0;
+  const progressColor = pct === 100 ? 'bg-emerald-400' : 'bg-sky-400/70';
+
+  const isOverdue = topic.deadlineDate
+    ? new Date(topic.deadlineDate) < new Date(new Date().toDateString())
+    : false;
+
   return (
     <>
       <div className="mb-2 flex items-center justify-end">
@@ -18,15 +28,29 @@ export default function CardContent({ topic }: { topic: Topic }) {
       <p className="mt-1 text-xs leading-relaxed text-ink-500 line-clamp-2">
         {topic.description || 'No description yet'}
       </p>
-      <div className="mt-3 flex items-center justify-between border-t border-white/[0.04] pt-2.5">
+
+      {/* Checklist mini-progress bar */}
+      {hasChecklist && (
+        <div className="mt-2.5 space-y-1">
+          <div className="h-0.5 overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-ink-700">{doneCount}/{totalCount}</span>
+            <span className="text-[10px] text-ink-700">{pct}%</span>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-2.5 flex items-center justify-between border-t border-white/[0.04] pt-2.5">
         <div className="flex items-center gap-3">
-          {/* Checklist counter — hidden in MVP, code preserved for future use */}
-          <span className="hidden flex items-center gap-1 text-[10px] text-ink-600" />
-          {/* Resource counter — hidden in MVP, code preserved for future use */}
-          <span className="hidden flex items-center gap-1 text-[10px] text-ink-600" />
           {topic.deadlineDate && (
-            <span className="flex items-center gap-1 text-[10px] text-rose-400/80">
-              <Flag className="h-3 w-3" /> {topic.deadlineDate.slice(5)}
+            <span className={`flex items-center gap-1 text-[10px] ${isOverdue ? 'text-rose-400' : 'text-ink-600'}`}>
+              <Flag className="h-3 w-3" />
+              {isOverdue ? 'Overdue' : topic.deadlineDate.slice(5)}
             </span>
           )}
         </div>

@@ -1,4 +1,5 @@
-import { Tag, Plus, X } from 'lucide-react';
+import { useRef } from 'react';
+import { Tag, Plus, X, CalendarDays, AlertTriangle } from 'lucide-react';
 import { difficultyConfig, boardColorMap } from '../../config';
 import type { Difficulty, Topic, Board } from '../../types';
 
@@ -21,6 +22,15 @@ export default function TopicProperties({
   onNewTagChange, onAddTag, onRemoveTag,
 }: TopicPropertiesProps) {
   const boardColors = board ? boardColorMap[board.color] : boardColorMap.sky;
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  const isOverdue = topic.deadlineDate
+    ? new Date(topic.deadlineDate) < new Date(new Date().toDateString())
+    : false;
+
+  const formattedDeadline = topic.deadlineDate
+    ? new Date(topic.deadlineDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
 
   return (
     <section>
@@ -51,23 +61,53 @@ export default function TopicProperties({
           </div>
         </div>
 
-        {/* Deadline date */}
+        {/* Deadline — custom trigger */}
         <div className="flex items-center gap-3">
           <span className="w-20 shrink-0 text-xs text-ink-500">Deadline</span>
-          <div className="flex flex-1 items-center gap-2">
+          <div className="relative flex-1">
+            {/* Hidden native date input — triggered programmatically */}
             <input
+              ref={dateInputRef}
               type="date"
               value={topic.deadlineDate ?? ''}
               onChange={(e) => onDeadlineDateChange(e.target.value)}
-              className="flex-1 rounded-lg border border-white/[0.06] bg-ink-800 px-3 py-2 text-sm text-ink-100 transition-colors focus:border-rose-500/30 focus:outline-none [color-scheme:dark]"
+              className="absolute inset-0 opacity-0 [color-scheme:dark]"
+              tabIndex={-1}
             />
-            {topic.deadlineDate && (
+
+            {formattedDeadline ? (
+              /* Chip with date + clear button */
+              <div className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                isOverdue
+                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                  : 'border-white/[0.08] bg-ink-800 text-ink-200'
+              }`}>
+                {isOverdue
+                  ? <AlertTriangle className="h-3 w-3 shrink-0" />
+                  : <CalendarDays className="h-3 w-3 shrink-0 text-ink-500" />
+                }
+                <button
+                  onClick={() => dateInputRef.current?.showPicker?.()}
+                  className="hover:underline"
+                >
+                  {formattedDeadline}
+                </button>
+                <button
+                  onClick={() => onDeadlineDateChange('')}
+                  className="ml-0.5 rounded-full text-current opacity-50 transition-opacity hover:opacity-100"
+                  title="Clear deadline"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              /* Empty state trigger */
               <button
-                onClick={() => onDeadlineDateChange('')}
-                className="rounded-md p-1.5 text-ink-600 transition-colors hover:bg-white/[0.06] hover:text-ink-300"
-                title="Clear deadline"
+                onClick={() => dateInputRef.current?.showPicker?.()}
+                className="flex items-center gap-1.5 rounded-lg border border-dashed border-white/[0.08] px-2.5 py-1.5 text-xs text-ink-600 transition-colors hover:border-white/[0.15] hover:text-ink-400"
               >
-                <X className="h-3.5 w-3.5" />
+                <CalendarDays className="h-3 w-3" />
+                Add deadline…
               </button>
             )}
           </div>

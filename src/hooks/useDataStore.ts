@@ -545,11 +545,13 @@ export function useDataStore() {
     const updated = topic.checklist.map((item) =>
       item.id === itemId ? { ...item, done: !item.done } : item,
     );
-    setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, checklist: updated } : t));
-    const { error: err } = await supabase
-      .from('topics')
-      .update({ checklist: updated, updated_at: new Date().toISOString() })
-      .eq('id', topicId);
+    const progress = calcProgress(updated);
+    setTopics((prev) => prev.map((t) => t.id === topicId
+      ? { ...t, checklist: updated, ...(progress !== null && { progress }) }
+      : t));
+    const dbUpdate: Record<string, unknown> = { checklist: updated, updated_at: new Date().toISOString() };
+    if (progress !== null) dbUpdate.progress = progress;
+    const { error: err } = await supabase.from('topics').update(dbUpdate).eq('id', topicId);
     if (err) {
       setError(err.message);
       setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, checklist: topic.checklist } : t));
@@ -578,11 +580,15 @@ export function useDataStore() {
     if (!topic) return;
     const newItem: ChecklistItem = { id: generateId('c'), text, done: false };
     const updated = [...topic.checklist, newItem];
+    const progress = calcProgress(updated);
 
-    setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, checklist: updated } : t));
+    setTopics((prev) => prev.map((t) => t.id === topicId
+      ? { ...t, checklist: updated, ...(progress !== null && { progress }) }
+      : t));
 
-    const { error: err } = await supabase
-      .from('topics').update({ checklist: updated, updated_at: new Date().toISOString() }).eq('id', topicId);
+    const dbUpdate: Record<string, unknown> = { checklist: updated, updated_at: new Date().toISOString() };
+    if (progress !== null) dbUpdate.progress = progress;
+    const { error: err } = await supabase.from('topics').update(dbUpdate).eq('id', topicId);
     if (err) {
       setError(err.message);
       setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, checklist: topic.checklist } : t));
@@ -593,11 +599,15 @@ export function useDataStore() {
     const topic = topics.find((t) => t.id === topicId);
     if (!topic) return;
     const updated = topic.checklist.filter((item) => item.id !== itemId);
+    const progress = calcProgress(updated);
 
-    setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, checklist: updated } : t));
+    setTopics((prev) => prev.map((t) => t.id === topicId
+      ? { ...t, checklist: updated, ...(progress !== null ? { progress } : { progress: 0 }) }
+      : t));
 
-    const { error: err } = await supabase
-      .from('topics').update({ checklist: updated, updated_at: new Date().toISOString() }).eq('id', topicId);
+    const dbUpdate: Record<string, unknown> = { checklist: updated, updated_at: new Date().toISOString() };
+    dbUpdate.progress = progress ?? 0;
+    const { error: err } = await supabase.from('topics').update(dbUpdate).eq('id', topicId);
     if (err) {
       setError(err.message);
       setTopics((prev) => prev.map((t) => t.id === topicId ? { ...t, checklist: topic.checklist } : t));

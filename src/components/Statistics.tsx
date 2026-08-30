@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Clock, Target, Award, Flame, Layers } from 'lucide-react';
 import { HEATMAP_COLORS, VISIBLE_STATUS_ORDER } from '../config';
 import { generateHeatmap, generateWeeklyActivity, computeStreak, getStudyDates } from '../utils/analytics';
-import { STATUS_PROGRESS } from '../utils/status';
+
 import type { Board, Topic } from '../types';
 
 interface StatisticsProps { topics: Topic[]; boards: Board[]; }
@@ -76,7 +76,7 @@ function RadarChart({ boards, topics, inView }: { boards: Board[]; topics: Topic
     const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
     const bt = topics.filter((t) => t.boardId === b.id);
     const val = bt.length > 0
-      ? bt.reduce((s, t) => s + STATUS_PROGRESS[t.status], 0) / bt.length / 100
+      ? bt.reduce((s, t) => s + t.progress, 0) / bt.length / 100
       : 0;
     return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), val, label: b.title, angle };
   });
@@ -380,7 +380,7 @@ export default function Statistics({ topics, boards }: StatisticsProps) {
   const totalTopics = topics.length;
   const { current: currentStreak } = computeStreak(topics);
   const avgProgress = totalTopics > 0
-    ? Math.round(topics.reduce((sum, t) => sum + STATUS_PROGRESS[t.status], 0) / totalTopics)
+    ? Math.round(topics.reduce((sum, t) => sum + t.progress, 0) / totalTopics)
     : 0;
 
   // Count-up values
@@ -399,7 +399,7 @@ export default function Statistics({ topics, boards }: StatisticsProps) {
       return { status: st, count, pct: total > 0 ? (count / total) * 100 : 0 };
     });
     const avgP = total > 0
-      ? Math.round(bt.reduce((s, t) => s + STATUS_PROGRESS[t.status], 0) / total)
+      ? Math.round(bt.reduce((s, t) => s + t.progress, 0) / total)
       : 0;
     return { ...b, total, segs, avgP };
   }).sort((a, b) => b.total - a.total);

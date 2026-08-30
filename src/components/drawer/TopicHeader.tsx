@@ -121,6 +121,28 @@ export default function TopicHeader({
           );
         })}
       </div>
+
+      {/* Checklist progress bar — only when checklist exists */}
+      {topic.checklist.length > 0 && (() => {
+        const done = topic.checklist.filter((c) => c.done).length;
+        const total = topic.checklist.length;
+        const pct = Math.round((done / total) * 100);
+        const barColor = pct === 100 ? 'bg-emerald-400' : 'bg-sky-400';
+        return (
+          <div className="mt-4 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-ink-600 font-semibold uppercase tracking-wider">Progress</span>
+              <span className="font-mono text-[10px] text-ink-500">{done}/{total} · {pct}%</span>
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-black/20">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

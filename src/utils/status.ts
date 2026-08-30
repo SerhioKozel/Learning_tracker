@@ -3,19 +3,6 @@ import { generateId } from './id';
 import type { Status, Difficulty, Topic, HistoryEntry } from '../types';
 
 /**
- * Progress value automatically assigned when a topic moves to a given status.
- * This is the single source of truth for status-based progress (Variant 2).
- * Manual slider is hidden in MVP — progress is always derived from status.
- */
-export const STATUS_PROGRESS: Record<Status, number> = {
-  to_learn:  0,
-  learning:  25,
-  practice:  60,
-  review:    80,   // kept for data compatibility, review column is hidden in UI
-  completed: 100,
-};
-
-/**
  * Computes the side effects of moving a topic to a new status:
  * - A 'moved' history entry is built using the human-readable status labels.
  *

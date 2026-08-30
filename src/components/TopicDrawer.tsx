@@ -30,24 +30,16 @@ interface TopicDrawerProps {
   onDeleteTopic: (id: string) => Promise<void>;
 }
 
-const DIVIDER = <div className="my-6 border-t border-white/[0.04]" />;
-
 export default function TopicDrawer({
   topic, boards, onClose, onUpdate,
   onAddChecklistItem, onDeleteChecklistItem, onToggleChecklistItem,
   onAddResource, onDeleteResource, onToggleResource,
   onDuplicateTopic, onDeleteTopic,
 }: TopicDrawerProps) {
-  // ─── Local state ────────────────────────────────────────────────────────────
-
   const [title, setTitle] = useState(topic?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
   const [description, setDescription] = useState(topic?.description ?? '');
   const [notes, setNotes] = useState(topic?.notes ?? '');
-  const [newChecklistText, setNewChecklistText] = useState('');
-  const [newResource, setNewResource] = useState<{ title: string; type: Resource['type']; url: string }>(
-    { title: '', type: 'url', url: '' },
-  );
   const [newTag, setNewTag] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -59,8 +51,6 @@ export default function TopicDrawer({
       setEditingTitle(false);
       setDescription(topic?.description ?? '');
       setNotes(topic?.notes ?? '');
-      setNewChecklistText('');
-      setNewResource({ title: '', type: 'url', url: '' });
       setNewTag('');
       prevTopicId.current = topic?.id;
     }
@@ -88,18 +78,6 @@ export default function TopicDrawer({
     } else {
       setTitle(topic.title);
     }
-  };
-
-  const handleAddChecklist = async () => {
-    if (!newChecklistText.trim()) return;
-    await onAddChecklistItem(topic.id, newChecklistText.trim());
-    setNewChecklistText('');
-  };
-
-  const handleAddResource = async () => {
-    if (!newResource.title.trim()) return;
-    await onAddResource(topic.id, newResource);
-    setNewResource({ title: '', type: 'url', url: '' });
   };
 
   const handleConfirmDelete = async () => {
@@ -138,70 +116,65 @@ export default function TopicDrawer({
           onClose={onClose}
         />
 
+        {/* Scrollable body */}
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-6">
 
-          <TopicProperties
-            topic={topic}
-            board={board}
-            newTag={newTag}
+            <TopicProperties
+              topic={topic}
+              board={board}
+              newTag={newTag}
+              onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty }, topic)}
+              onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null }, topic)}
+              onNewTagChange={setNewTag}
+              onAddTag={() => {
+                const tag = newTag.trim().toLowerCase();
+                if (!tag || topic.tags.includes(tag)) return;
+                onUpdate(topic.id, { tags: [...topic.tags, tag] }, topic);
+                setNewTag('');
+              }}
+              onRemoveTag={(tag) => onUpdate(topic.id, { tags: topic.tags.filter((t) => t !== tag) }, topic)}
+            />
 
-            onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty }, topic)}
-            onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null }, topic)}
-            onNewTagChange={setNewTag}
-            onAddTag={() => {
-              const tag = newTag.trim().toLowerCase();
-              if (!tag || topic.tags.includes(tag)) return;
-              onUpdate(topic.id, { tags: [...topic.tags, tag] }, topic);
-              setNewTag('');
-            }}
-            onRemoveTag={(tag) => onUpdate(topic.id, { tags: topic.tags.filter((t) => t !== tag) }, topic)}
-          />
+            <div className="border-t border-white/[0.04]" />
 
-          {DIVIDER}
-
-          {/* Checklist — hidden in MVP UI, code preserved for future use */}
-          <div className="hidden">
             <TopicChecklist
               topic={topic}
-              newChecklistText={newChecklistText}
-              onNewTextChange={setNewChecklistText}
               onToggle={(itemId) => onToggleChecklistItem(topic.id, itemId)}
               onDelete={(itemId) => onDeleteChecklistItem(topic.id, itemId)}
-              onAdd={handleAddChecklist}
+              onAdd={(text) => onAddChecklistItem(topic.id, text)}
             />
-          </div>
 
-          {/* Resources — hidden in MVP UI, code preserved for future use */}
-          <div className="hidden">
+            <div className="border-t border-white/[0.04]" />
+
             <TopicResources
               topic={topic}
-              newResource={newResource}
-              onNewResourceChange={setNewResource}
               onToggle={(resourceId) => onToggleResource(topic.id, resourceId)}
               onDelete={(resourceId) => onDeleteResource(topic.id, resourceId)}
-              onAdd={handleAddResource}
+              onAdd={(data) => onAddResource(topic.id, data)}
             />
-          </div>
 
-          <TopicNotes
-            notes={notes}
-            onChange={setNotes}
-            onBlur={() => {
-              if (notes !== topic.notes) onUpdate(topic.id, { notes });
-            }}
-          />
+            <div className="border-t border-white/[0.04]" />
 
-          {DIVIDER}
+            <TopicNotes
+              notes={notes}
+              onChange={setNotes}
+              onBlur={() => {
+                if (notes !== topic.notes) onUpdate(topic.id, { notes });
+              }}
+            />
 
-          <TopicHistory history={topic.history} />
+            <div className="border-t border-white/[0.04]" />
 
-          {DIVIDER}
+            <TopicHistory history={topic.history} />
 
-          <div className="flex items-center gap-4 text-xs text-ink-600">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> Created {topic.createdAt}
-            </span>
-            <span>Updated {topic.updatedAt}</span>
+            <div className="flex items-center gap-4 text-xs text-ink-600">
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" /> Created {topic.createdAt}
+              </span>
+              <span>Updated {topic.updatedAt}</span>
+            </div>
+
           </div>
         </div>
       </div>
