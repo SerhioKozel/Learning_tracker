@@ -406,7 +406,10 @@ export function useDataStore() {
     await fetchAll();
   }, [fetchAll]);
 
-  const duplicateTopic = useCallback(async (id: string): Promise<Topic | null> => {
+  const duplicateTopic = useCallback(async (
+    id: string,
+    overrides?: { title?: string; boardId?: string },
+  ): Promise<Topic | null> => {
     const topic = topics.find((t) => t.id === id);
     if (!topic) return null;
     const now = new Date().toISOString();
@@ -417,10 +420,10 @@ export function useDataStore() {
     const { data: row, error: err } = await supabase
       .from('topics')
       .insert({
-        title: `${topic.title} (copy)`,
+        title: overrides?.title ?? `${topic.title} (copy)`,
         description: topic.description,
         status: 'to_learn',
-        board_id: topic.boardId,
+        board_id: overrides?.boardId ?? topic.boardId,
         difficulty: topic.difficulty,
         review_date: null,
         deadline_date: null,

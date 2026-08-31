@@ -79,12 +79,10 @@ export const difficultyConfig: Record<Difficulty, { label: string; bg: string; t
 
 // ─── Resource types ───────────────────────────────────────────────────────────
 
-export const resourceTypeConfig: Record<Resource['type'], { icon: string; label: string }> = {
-  url:           { icon: 'Link2',     label: 'URL' },
-  book:          { icon: 'BookOpen',  label: 'Book' },
-  video:         { icon: 'PlayCircle',label: 'Video' },
-  documentation: { icon: 'BookMarked',label: 'Docs' },
-  github:        { icon: 'Code2',     label: 'Repo' },
+export const resourceTypeConfig: Record<Resource['type'], { icon: string; label: string; description: string }> = {
+  documentation: { icon: 'BookMarked', label: 'Documentation', description: 'Docs, guides, references' },
+  snippet:       { icon: 'Code2',      label: 'Code Snippets', description: 'Code examples, repos, gists' },
+  other:         { icon: 'Link2',      label: 'Other',         description: 'Articles, videos, books…' },
 };
 
 // ─── History actions ──────────────────────────────────────────────────────────

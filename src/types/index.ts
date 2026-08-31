@@ -23,7 +23,7 @@ export interface ChecklistItem {
 export interface Resource {
   id: string;
   title: string;
-  type: 'url' | 'book' | 'video' | 'documentation' | 'github';
+  type: 'documentation' | 'snippet' | 'other';
   url: string;
   done: boolean;
 }
@@ -46,6 +46,8 @@ export interface Topic {
   /** @deprecated reviewDate is no longer used in MVP — kept for data compatibility only */
   reviewDate: string | null;
   deadlineDate: string | null;
+  /** Checklist completion percentage (0-100). Computed from checklist; 0 when no checklist. */
+  progress: number;
   checklist: ChecklistItem[];
   resources: Resource[];
   notes: string;

@@ -13,31 +13,34 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
   const [inputVisible, setInputVisible] = useState(false);
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const skipBlurRef = useRef(false);
 
-  const done = topic.checklist.filter((c) => c.done).length;
+  const done  = topic.checklist.filter((c) => c.done).length;
   const total = topic.checklist.length;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+  const progressColor = pct === 100 ? 'bg-emerald-400' : 'bg-sky-400';
 
-  // Auto-focus when input appears
   useEffect(() => {
     if (inputVisible) inputRef.current?.focus();
   }, [inputVisible]);
 
-  function handleAdd() {
+  function doAdd() {
     const trimmed = text.trim();
     if (!trimmed) return;
     onAdd(trimmed);
     setText('');
-    // Keep input visible for rapid entry
+    inputRef.current?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') { e.preventDefault(); handleAdd(); }
+    if (e.key === 'Enter') { e.preventDefault(); doAdd(); }
     if (e.key === 'Escape') { setInputVisible(false); setText(''); }
   }
 
-  // Progress accent colour mirrors emerald for done items
-  const progressColor = pct === 100 ? 'bg-emerald-400' : 'bg-sky-400';
+  function handleBlur() {
+    if (skipBlurRef.current) { skipBlurRef.current = false; return; }
+    if (!text.trim()) setInputVisible(false);
+  }
 
   return (
     <section>
@@ -45,21 +48,18 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
         <h3 className="text-[10px] font-semibold uppercase tracking-wider text-ink-600">
           Checklist
           {total > 0 && (
-            <span className="ml-1.5 font-normal normal-case text-ink-700">
-              {done}/{total}
-            </span>
+            <span className="ml-1.5 font-normal normal-case text-ink-700">{done}/{total}</span>
           )}
         </h3>
         <button
           onClick={() => setInputVisible((v) => !v)}
-          className="flex items-center gap-1 rounded-md p-1 text-ink-600 transition-colors hover:bg-white/[0.05] hover:text-ink-400"
+          className="rounded-md p-1 text-ink-600 transition-colors hover:bg-white/[0.05] hover:text-ink-400"
           title="Add item"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      {/* Progress bar — only when there's at least one item */}
       {total > 0 && (
         <div className="mt-2 h-0.5 overflow-hidden rounded-full bg-ink-700">
           <div
@@ -69,7 +69,6 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
         </div>
       )}
 
-      {/* Items */}
       {total > 0 && (
         <div className="mt-2 space-y-0.5">
           {topic.checklist.map((item) => (
@@ -92,7 +91,7 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
                 {item.text}
               </span>
               <button
-                onClick={() => onDelete(item.id)}
+                onPointerDown={(e) => { e.preventDefault(); onDelete(item.id); }}
                 className="rounded p-1 text-ink-700 opacity-0 transition-all hover:bg-rose-500/15 hover:text-rose-400 group-hover:opacity-100"
                 title="Remove item"
               >
@@ -103,7 +102,6 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
         </div>
       )}
 
-      {/* Inline input — appears on + click */}
       {inputVisible && (
         <div className="mt-2 flex items-center gap-2">
           <input
@@ -111,12 +109,13 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            onBlur={() => { if (!text.trim()) setInputVisible(false); }}
+            onBlur={handleBlur}
             placeholder="Add item…"
             className="flex-1 rounded-lg border border-white/[0.06] bg-ink-800 px-3 py-1.5 text-xs text-ink-100 placeholder:text-ink-600 focus:border-sky-500/30 focus:outline-none"
           />
           <button
-            onClick={handleAdd}
+            onPointerDown={() => { skipBlurRef.current = true; }}
+            onClick={doAdd}
             disabled={!text.trim()}
             className="rounded-lg bg-ink-700 p-1.5 text-ink-400 transition-colors hover:bg-ink-600 hover:text-white disabled:opacity-40"
           >
@@ -125,7 +124,6 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
         </div>
       )}
 
-      {/* Empty prompt — shows when no items and input closed */}
       {total === 0 && !inputVisible && (
         <button
           onClick={() => setInputVisible(true)}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar } from 'lucide-react';
 import ConfirmDialog from './ui/ConfirmDialog';
+import DuplicateTopicDialog from './ui/DuplicateTopicDialog';
 import TopicHeader from './drawer/TopicHeader';
 import TopicProperties from './drawer/TopicProperties';
 import TopicChecklist from './drawer/TopicChecklist';
@@ -26,7 +27,7 @@ interface TopicDrawerProps {
   onAddResource: (topicId: string, data: { title: string; type: Resource['type']; url: string }) => Promise<void>;
   onDeleteResource: (topicId: string, resourceId: string) => Promise<void>;
   onToggleResource: (topicId: string, resourceId: string) => Promise<void>;
-  onDuplicateTopic: (id: string) => Promise<Topic | null>;
+  onDuplicateTopic: (id: string, overrides?: { title?: string; boardId?: string }) => Promise<Topic | null>;
   onDeleteTopic: (id: string) => Promise<void>;
 }
 
@@ -40,8 +41,16 @@ export default function TopicDrawer({
   const [editingTitle, setEditingTitle] = useState(false);
   const [description, setDescription] = useState(topic?.description ?? '');
   const [notes, setNotes] = useState(topic?.notes ?? '');
-  const [newTag, setNewTag] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDuplicate, setShowDuplicate] = useState(false);
+
+  // Ref to the element that was focused before opening the drawer (Fix 7)
+  const triggerRef = useRef<Element | null>(null);
+
+  // Capture focused element on first render
+  useEffect(() => {
+    triggerRef.current = document.activeElement;
+  }, []);
 
   // Sync local fields when a different topic is opened
   const prevTopicId = useRef<string | undefined>(undefined);
@@ -51,7 +60,6 @@ export default function TopicDrawer({
       setEditingTitle(false);
       setDescription(topic?.description ?? '');
       setNotes(topic?.notes ?? '');
-      setNewTag('');
       prevTopicId.current = topic?.id;
     }
   }, [topic?.id, topic?.title, topic?.description, topic?.notes]);
@@ -62,12 +70,17 @@ export default function TopicDrawer({
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
+  const handleClose = () => {
+    // Fix 7: blur the card that was focused so it loses its focus ring
+    if (triggerRef.current instanceof HTMLElement) {
+      triggerRef.current.blur();
+    }
+    onClose();
+  };
+
   const handleStatusChange = (newStatus: Status) => {
     const { historyEntry } = computeStatusChange(topic, newStatus);
-    onUpdate(topic.id, {
-      status: newStatus,
-      history: [...topic.history, historyEntry],
-    });
+    onUpdate(topic.id, { status: newStatus, history: [...topic.history, historyEntry] });
   };
 
   const handleTitleBlur = () => {
@@ -82,14 +95,20 @@ export default function TopicDrawer({
 
   const handleConfirmDelete = async () => {
     await onDeleteTopic(topic.id);
-    onClose();
+    handleClose();
+  };
+
+  const handleDuplicateConfirm = async (newTitle: string, boardId: string) => {
+    await onDuplicateTopic(topic.id, { title: newTitle, boardId });
+    setShowDuplicate(false);
+    handleClose();
   };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
-      <div className="overlay fixed inset-0 z-40 animate-fade-in backdrop-blur-sm" onClick={onClose} />
+      <div className="overlay fixed inset-0 z-40 animate-fade-in backdrop-blur-sm" onClick={handleClose} />
 
       <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-lg animate-slide-in-right flex-col border-l border-white/[0.08] bg-ink-950 shadow-2xl">
 
@@ -111,9 +130,9 @@ export default function TopicDrawer({
             if (description !== topic.description) onUpdate(topic.id, { description }, topic);
           }}
           onStatusChange={handleStatusChange}
-          onDuplicate={() => onDuplicateTopic(topic.id).then(onClose)}
+          onDuplicate={() => setShowDuplicate(true)}
           onDelete={() => setConfirmDelete(true)}
-          onClose={onClose}
+          onClose={handleClose}
         />
 
         {/* Scrollable body */}
@@ -123,15 +142,11 @@ export default function TopicDrawer({
             <TopicProperties
               topic={topic}
               board={board}
-              newTag={newTag}
               onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty }, topic)}
               onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null }, topic)}
-              onNewTagChange={setNewTag}
-              onAddTag={() => {
-                const tag = newTag.trim().toLowerCase();
+              onAddTag={(tag) => {
                 if (!tag || topic.tags.includes(tag)) return;
                 onUpdate(topic.id, { tags: [...topic.tags, tag] }, topic);
-                setNewTag('');
               }}
               onRemoveTag={(tag) => onUpdate(topic.id, { tags: topic.tags.filter((t) => t !== tag) }, topic)}
             />
@@ -157,6 +172,7 @@ export default function TopicDrawer({
             <div className="border-t border-white/[0.04]" />
 
             <TopicNotes
+              topicId={topic.id}
               notes={notes}
               onChange={setNotes}
               onBlur={() => {
@@ -187,6 +203,15 @@ export default function TopicDrawer({
           danger
           onConfirm={handleConfirmDelete}
           onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {showDuplicate && (
+        <DuplicateTopicDialog
+          topic={topic}
+          boards={boards}
+          onConfirm={handleDuplicateConfirm}
+          onCancel={() => setShowDuplicate(false)}
         />
       )}
     </>
