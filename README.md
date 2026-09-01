@@ -81,6 +81,13 @@ Open [http://localhost:5173](http://localhost:5173).
 | `npm run preview` | Preview production build locally |
 | `npm run typecheck` | TypeScript check — must be clean before committing |
 | `npm run lint` | ESLint — must be clean before committing |
+| `npm run test:unit` | Run unit tests (Vitest) in watch mode |
+| `npm run test:unit:ui` | Run unit tests with interactive UI |
+| `npm run test:unit:coverage` | Run unit tests with coverage report |
+| `npm run test:e2e` | Run E2E tests (Playwright) |
+| `npm run test:e2e:ui` | Run E2E tests with interactive UI |
+| `npm run test:e2e:debug` | Run E2E tests in debug mode |
+| `npm run test:all` | Run all tests (unit + E2E) |
 
 ---
 
@@ -108,6 +115,7 @@ src/
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local setup, scripts, workflow, common issues |
 | [docs/PROJECT-STRUCTURE.md](docs/PROJECT-STRUCTURE.md) | Every file and folder explained |
 | [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) | Colors, typography, tokens, component classes |
+| [docs/TESTING.md](docs/TESTING.md) | Unit and E2E testing guide |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Code standards, conventions, checklist |
 | [docs/DECISION-LOG.md](docs/DECISION-LOG.md) | Why specific technical choices were made |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What's built and what's planned |

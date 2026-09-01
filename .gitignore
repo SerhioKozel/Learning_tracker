@@ -28,3 +28,12 @@ dist-ssr
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Vitest
+/coverage/
+.vitest-result.json
+
+# Test cache
+*.timestamp-*.mjs
+
+/docs/info.txt
