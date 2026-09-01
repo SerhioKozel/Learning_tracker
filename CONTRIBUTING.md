@@ -119,7 +119,7 @@ const myMutation = useCallback(async (params: MyParams): Promise<void> => {
   const { error } = await supabase.from('table').update(...).eq('id', id);
   if (error) { setError(error.message); return; }
   await fetchAll(); // full consistency
-  // OR: optimistic update (see DL-007 in DECISION-LOG.md for when to use each)
+  // OR: optimistic update (see DL-007 in docs/DECISION-LOG.md for when to use each)
 }, [fetchAll]);
 ```
 

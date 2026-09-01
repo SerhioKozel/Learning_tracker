@@ -113,7 +113,7 @@ src/
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What's built and what's planned |
 | [SECURITY.md](SECURITY.md) | Security model and deployment guidance |
 | [docs/BACKLOG.md](docs/BACKLOG.md) | Prioritised task list |
-| [CHANGELOG.md](CHANGELOG.md) | History of all notable changes |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | History of all notable changes |
 
 ---
 
