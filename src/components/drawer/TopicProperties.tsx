@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Tag, Plus, X, CalendarDays, AlertTriangle } from 'lucide-react';
 import { difficultyConfig, boardColorMap } from '../../config';
 import type { Difficulty, Topic, Board } from '../../types';
@@ -10,6 +10,8 @@ interface TopicPropertiesProps {
   onDeadlineDateChange: (value: string) => void;
   onAddTag: (tag: string) => void;
   onRemoveTag: (tag: string) => void;
+  /** Returns up to 5 matching system-tag names for the given query. */
+  onSearchTags: (query: string) => Promise<string[]>;
 }
 
 export default function TopicProperties({
@@ -17,12 +19,82 @@ export default function TopicProperties({
   onDifficultyChange,
   onDeadlineDateChange,
   onAddTag, onRemoveTag,
+  onSearchTags,
 }: TopicPropertiesProps) {
   const boardColors = board ? boardColorMap[board.color] : boardColorMap.sky;
 
-  // ── Deadline ────────────────────────────────────────────────────────────────
-  const dateInputRef = useRef<HTMLInputElement>(null);
+  // ── Tags ────────────────────────────────────────────────────────────────────
+  const tagInputRef = useRef<HTMLInputElement>(null);
+  const [tagInputVisible, setTagInputVisible] = useState(false);
+  const [tagValue, setTagValue] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  // Set in onPointerDown of the + button / a suggestion — prevents onBlur
+  // from hiding the input/dropdown before the click handler fires.
+  const skipBlurRef = useRef(false);
+  // Guards against a slow, stale search response overwriting a fresher one
+  const searchSeqRef = useRef(0);
 
+  const alreadyHasTag = (name: string) =>
+    topic.tags.some((t) => t.toLowerCase() === name.toLowerCase());
+
+  // Debounced autocomplete search against system tags
+  useEffect(() => {
+    const query = tagValue.trim();
+    if (!query) { setSuggestions([]); setHighlightIndex(-1); return; }
+
+    const seq = ++searchSeqRef.current;
+    const timer = setTimeout(async () => {
+      const results = await onSearchTags(query);
+      if (seq !== searchSeqRef.current) return; // a newer search superseded this one
+      setSuggestions(results.filter((r) => !alreadyHasTag(r)));
+      setHighlightIndex(-1);
+    }, 200);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagValue]);
+
+  function commitTag(name: string) {
+    if (name.trim() && !alreadyHasTag(name)) onAddTag(name.trim());
+    setTagValue('');
+    setSuggestions([]);
+    setHighlightIndex(-1);
+    tagInputRef.current?.focus();
+  }
+
+  function doAddTag() {
+    // If a suggestion is highlighted, commit that one (preserves canonical casing).
+    if (highlightIndex >= 0 && suggestions[highlightIndex]) {
+      commitTag(suggestions[highlightIndex]);
+      return;
+    }
+    commitTag(tagValue.trim().toLowerCase());
+  }
+
+  function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex((i) => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      doAddTag();
+    } else if (e.key === 'Escape') {
+      if (suggestions.length > 0) { setSuggestions([]); setHighlightIndex(-1); }
+      else { setTagInputVisible(false); setTagValue(''); }
+    }
+  }
+
+  function handleTagBlur() {
+    if (skipBlurRef.current) { skipBlurRef.current = false; return; }
+    setSuggestions([]);
+    if (!tagValue.trim()) setTagInputVisible(false);
+  }
+
+  // ── Deadline ────────────────────────────────────────────────────────────────
   const isOverdue = topic.deadlineDate
     ? new Date(topic.deadlineDate) < new Date(new Date().toDateString())
     : false;
@@ -32,41 +104,6 @@ export default function TopicProperties({
         day: 'numeric', month: 'short', year: 'numeric',
       })
     : null;
-
-  // ── Tags ────────────────────────────────────────────────────────────────────
-  const tagInputRef = useRef<HTMLInputElement>(null);
-  const [tagInputVisible, setTagInputVisible] = useState(false);
-  const [tagValue, setTagValue] = useState('');
-  // Prevent onBlur from hiding the input when the user is clicking the + button
-  const skipBlurRef = useRef(false);
-
-  function doAddTag() {
-    const tag = tagValue.trim().toLowerCase();
-    if (tag && !topic.tags.includes(tag)) onAddTag(tag);
-    setTagValue('');
-    tagInputRef.current?.focus();
-  }
-
-  function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      doAddTag();
-    }
-    if (e.key === 'Escape') {
-      setTagInputVisible(false);
-      setTagValue('');
-    }
-  }
-
-  function handleTagBlur() {
-    // skipBlurRef is set in onPointerDown of the + button — by the time onBlur
-    // fires (synchronously after pointer events) the ref is already true.
-    if (skipBlurRef.current) {
-      skipBlurRef.current = false;
-      return;
-    }
-    if (!tagValue.trim()) setTagInputVisible(false);
-  }
 
   return (
     <section>
@@ -100,22 +137,19 @@ export default function TopicProperties({
         {/* ── Deadline ── */}
         <div className="flex items-center gap-3">
           <span className="w-20 shrink-0 text-xs text-ink-500">Deadline</span>
-          <div className="flex-1">
-            {/*
-              <label htmlFor="topic-deadline-input"> is the only truly
-              reliable cross-browser way to open a date picker: clicking a
-              label with a matching htmlFor triggers the native picker without
-              any JS, without z-index fights, and without showPicker() gesture
-              restrictions. The input is visually hidden via width/height 0 +
-              overflow hidden (NOT sr-only / clip:rect which blocks pickers).
-            */}
+          <div className="relative flex-1">
             <input
-              id="topic-deadline-input"
-              ref={dateInputRef}
+              id="deadline-picker"
               type="date"
               value={topic.deadlineDate ?? ''}
               onChange={(e) => onDeadlineDateChange(e.target.value)}
-              style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0 }}
+              style={{
+                position: 'absolute',
+                top: 0, left: 0,
+                width: '1px', height: '1px',
+                opacity: 0,
+                pointerEvents: 'none',
+              }}
               tabIndex={-1}
             />
             {formattedDeadline ? (
@@ -128,10 +162,7 @@ export default function TopicProperties({
                   ? <AlertTriangle className="h-3 w-3 shrink-0" />
                   : <CalendarDays className="h-3 w-3 shrink-0 text-ink-500" />
                 }
-                <label
-                  htmlFor="topic-deadline-input"
-                  className="flex-1 cursor-pointer hover:underline"
-                >
+                <label htmlFor="deadline-picker" className="flex-1 cursor-pointer hover:underline">
                   {formattedDeadline}
                 </label>
                 <button
@@ -144,7 +175,7 @@ export default function TopicProperties({
               </div>
             ) : (
               <label
-                htmlFor="topic-deadline-input"
+                htmlFor="deadline-picker"
                 className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-white/[0.08] px-3 py-1.5 text-xs text-ink-600 transition-colors hover:border-white/[0.15] hover:text-ink-400"
               >
                 <CalendarDays className="h-3 w-3" />
@@ -180,25 +211,47 @@ export default function TopicProperties({
             )}
 
             {tagInputVisible ? (
-              <div className="flex items-center gap-2">
-                <input
-                  ref={tagInputRef}
-                  autoFocus
-                  value={tagValue}
-                  onChange={(e) => setTagValue(e.target.value)}
-                  onKeyDown={handleTagKeyDown}
-                  onBlur={handleTagBlur}
-                  placeholder="Add tag…"
-                  className="flex-1 rounded-lg border border-white/[0.06] bg-ink-800 px-3 py-1.5 text-xs text-ink-100 placeholder:text-ink-600 focus:border-sky-500/30 focus:outline-none"
-                />
-                <button
-                  onPointerDown={() => { skipBlurRef.current = true; }}
-                  onClick={doAddTag}
-                  disabled={!tagValue.trim()}
-                  className="rounded-lg bg-ink-700 p-1.5 text-ink-400 transition-colors hover:bg-ink-600 hover:text-white disabled:opacity-40"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
+              <div className="relative">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={tagInputRef}
+                    autoFocus
+                    value={tagValue}
+                    onChange={(e) => setTagValue(e.target.value)}
+                    onKeyDown={handleTagKeyDown}
+                    onBlur={handleTagBlur}
+                    placeholder="Add tag…"
+                    className="flex-1 rounded-lg border border-white/[0.06] bg-ink-800 px-3 py-1.5 text-xs text-ink-100 placeholder:text-ink-600 focus:border-sky-500/30 focus:outline-none"
+                  />
+                  <button
+                    onPointerDown={() => { skipBlurRef.current = true; }}
+                    onClick={doAddTag}
+                    disabled={!tagValue.trim()}
+                    className="rounded-lg bg-ink-700 p-1.5 text-ink-400 transition-colors hover:bg-ink-600 hover:text-white disabled:opacity-40"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* Autocomplete dropdown — up to 5 matching system tags */}
+                {suggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-white/[0.08] bg-ink-800 shadow-lift">
+                    {suggestions.map((name, i) => (
+                      <button
+                        key={name}
+                        onPointerDown={() => { skipBlurRef.current = true; }}
+                        onClick={() => commitTag(name)}
+                        onMouseEnter={() => setHighlightIndex(i)}
+                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
+                          i === highlightIndex ? 'bg-sky-500/15 text-sky-300' : 'text-ink-300 hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <Tag className="h-3 w-3 shrink-0 text-ink-600" />
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <button

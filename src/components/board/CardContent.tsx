@@ -55,7 +55,14 @@ export default function CardContent({ topic }: { topic: Topic }) {
           )}
         </div>
         {topic.tags.length > 0 && (
-          <span className="text-[10px] text-ink-600">{topic.tags[0]}</span>
+          <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5">
+            {topic.tags.map((tag, i) => (
+              <span key={tag} className="flex items-center gap-1.5 text-[10px] text-ink-600">
+                {i > 0 && <span className="text-ink-800">·</span>}
+                {tag}
+              </span>
+            ))}
+          </div>
         )}
       </div>
     </>

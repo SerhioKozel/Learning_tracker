@@ -29,13 +29,14 @@ interface TopicDrawerProps {
   onToggleResource: (topicId: string, resourceId: string) => Promise<void>;
   onDuplicateTopic: (id: string, overrides?: { title?: string; boardId?: string }) => Promise<Topic | null>;
   onDeleteTopic: (id: string) => Promise<void>;
+  onSearchTags: (query: string) => Promise<string[]>;
 }
 
 export default function TopicDrawer({
   topic, boards, onClose, onUpdate,
   onAddChecklistItem, onDeleteChecklistItem, onToggleChecklistItem,
   onAddResource, onDeleteResource, onToggleResource,
-  onDuplicateTopic, onDeleteTopic,
+  onDuplicateTopic, onDeleteTopic, onSearchTags,
 }: TopicDrawerProps) {
   const [title, setTitle] = useState(topic?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
@@ -145,10 +146,12 @@ export default function TopicDrawer({
               onDifficultyChange={(difficulty) => onUpdate(topic.id, { difficulty }, topic)}
               onDeadlineDateChange={(value) => onUpdate(topic.id, { deadlineDate: value || null }, topic)}
               onAddTag={(tag) => {
-                if (!tag || topic.tags.includes(tag)) return;
+                const exists = topic.tags.some((t) => t.toLowerCase() === tag.toLowerCase());
+                if (!tag || exists) return;
                 onUpdate(topic.id, { tags: [...topic.tags, tag] }, topic);
               }}
               onRemoveTag={(tag) => onUpdate(topic.id, { tags: topic.tags.filter((t) => t !== tag) }, topic)}
+              onSearchTags={onSearchTags}
             />
 
             <div className="border-t border-white/[0.04]" />

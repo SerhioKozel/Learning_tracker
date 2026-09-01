@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { timeAgo } from '../utils/date';
 import { generateId } from '../utils/id';
@@ -102,54 +102,129 @@ function toSlug(name: string): string {
 }
 
 /**
- * Ensures all tag names exist in the `tags` table (upsert by slug).
- * Returns a map of { name → id } for the given names.
+ * Resolves tag names to ids, creating new `custom` tags only for names that
+ * don't already exist (matched by slug, case-insensitively — "Java" and
+ * "java" resolve to the same row). Existing tags of ANY type (system or
+ * custom) are matched and reused as-is — this function never UPDATEs an
+ * existing tag row.
+ *
+ * Why not upsert: an upsert with onConflict:'slug' would UPDATE the existing
+ * row when a slug collides — e.g. a user typing "java" would silently
+ * overwrite a curated `system` tag's `type` to `custom`. Besides being wrong
+ * data-wise, the RLS policy "tags: update custom or admin" evaluates USING
+ * against the tag's *existing* type, so updating a `system` row as a
+ * non-admin user would be rejected by Postgres, aborting the whole upsert
+ * statement. Select-then-insert-missing avoids ever issuing that UPDATE.
  */
-async function upsertTags(
+async function resolveOrCreateTags(
   supabaseClient: typeof supabase,
   names: string[],
 ): Promise<Map<string, string>> {
   const result = new Map<string, string>();
   if (names.length === 0) return result;
 
-  const rows = names.map((name) => ({
-    name: name.trim(),
-    slug: toSlug(name),
-    color: '#6b7280',   // default neutral color for user-created tags
-    type: 'custom' as const,
-  }));
+  const slugToName = new Map(names.map((n) => [toSlug(n), n]));
+  const slugs = [...slugToName.keys()];
 
-  const { data, error } = await supabaseClient
+  const { data: existing, error: selectErr } = await supabaseClient
     .from('tags')
-    .upsert(rows, { onConflict: 'slug', ignoreDuplicates: false })
-    .select('id, name');
+    .select('id, name, slug')
+    .in('slug', slugs);
 
-  if (error || !data) return result;
-  data.forEach((t: { id: string; name: string }) => result.set(t.name, t.id));
+  if (selectErr) {
+    console.error('resolveOrCreateTags: select failed', selectErr.message);
+    return result;
+  }
+
+  const foundSlugs = new Set<string>();
+  (existing ?? []).forEach((t: { id: string; name: string; slug: string }) => {
+    const originalName = slugToName.get(t.slug);
+    if (originalName) result.set(originalName, t.id);
+    foundSlugs.add(t.slug);
+  });
+
+  const missingNames = names.filter((n) => !foundSlugs.has(toSlug(n)));
+  if (missingNames.length > 0) {
+    const newRows = missingNames.map((name) => ({
+      name: name.trim(),
+      slug: toSlug(name),
+      color: '#6b7280',
+      type: 'custom' as const,
+    }));
+    const { data: created, error: insertErr } = await supabaseClient
+      .from('tags')
+      .insert(newRows)
+      .select('id, name, slug');
+
+    if (insertErr) {
+      console.error('resolveOrCreateTags: insert failed', insertErr.message);
+    } else {
+      (created ?? []).forEach((t: { id: string; name: string; slug: string }) => {
+        const originalName = slugToName.get(t.slug);
+        if (originalName) result.set(originalName, t.id);
+      });
+    }
+  }
+
   return result;
 }
 
 /**
- * Replaces all topic_tags for a topic with the given tag names.
- * Upserts tags as needed, then replaces junction rows atomically.
+ * Syncs topic_tags to match the given tag names — diff-based, not
+ * delete-then-insert. This matters for correctness under concurrency: a
+ * delete-then-insert leaves a window where the topic has zero tags in the
+ * database, which a concurrent read (e.g. the Realtime-triggered fetchAll
+ * that fires whenever `topics.updated_at` changes) could observe and briefly
+ * — or, under an unlucky resolution order, permanently until the next
+ * refresh — show as "tags disappeared". Diffing only inserts what's new and
+ * deletes what's removed, so existing associations are never transiently
+ * absent.
  */
 async function syncTopicTags(
   supabaseClient: typeof supabase,
   topicId: string,
   tagNames: string[],
 ): Promise<void> {
-  // Delete existing associations
-  await supabaseClient.from('topic_tags').delete().eq('topic_id', topicId);
+  const { data: currentRows, error: currentErr } = await supabaseClient
+    .from('topic_tags')
+    .select('tag_id, tags(name)')
+    .eq('topic_id', topicId);
 
-  if (tagNames.length === 0) return;
+  if (currentErr) {
+    console.error('syncTopicTags: failed to read current tags', currentErr.message);
+    return;
+  }
 
-  const nameToId = await upsertTags(supabaseClient, tagNames);
-  const rows = tagNames
-    .filter((name) => nameToId.has(name))
-    .map((name) => ({ topic_id: topicId, tag_id: nameToId.get(name)! }));
+  const currentByName = new Map<string, string>(); // name -> tag_id
+  (currentRows ?? []).forEach((row: { tag_id: string; tags: { name: string } | { name: string }[] | null }) => {
+    const names = getTagNames(row.tags);
+    names.forEach((n) => currentByName.set(n, row.tag_id));
+  });
 
-  if (rows.length > 0) {
-    await supabaseClient.from('topic_tags').insert(rows);
+  const desiredNames = new Set(tagNames);
+  const namesToAdd = tagNames.filter((n) => !currentByName.has(n));
+  const tagIdsToRemove = [...currentByName.entries()]
+    .filter(([name]) => !desiredNames.has(name))
+    .map(([, id]) => id);
+
+  if (tagIdsToRemove.length > 0) {
+    const { error: delErr } = await supabaseClient
+      .from('topic_tags')
+      .delete()
+      .eq('topic_id', topicId)
+      .in('tag_id', tagIdsToRemove);
+    if (delErr) console.error('syncTopicTags: delete failed', delErr.message);
+  }
+
+  if (namesToAdd.length > 0) {
+    const nameToId = await resolveOrCreateTags(supabaseClient, namesToAdd);
+    const insertRows = namesToAdd
+      .filter((name) => nameToId.has(name))
+      .map((name) => ({ topic_id: topicId, tag_id: nameToId.get(name)! }));
+    if (insertRows.length > 0) {
+      const { error: insErr } = await supabaseClient.from('topic_tags').insert(insertRows);
+      if (insErr) console.error('syncTopicTags: insert failed', insErr.message);
+    }
   }
 }
 
@@ -161,7 +236,18 @@ export function useDataStore() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Stale-request guard: fetchAll() can be triggered concurrently from two
+  // sources — our own mutations (createTopic, updateTopic, ...) and the
+  // Realtime subscription (any change to `topics`/`boards` fires its own
+  // independent fetchAll()). Network responses can resolve out of order, so
+  // without this guard a slower *earlier* fetchAll could overwrite state with
+  // stale data *after* a faster *later* fetchAll already applied fresh data.
+  // We only apply results from the most recently *started* fetchAll — any
+  // fetchAll that finishes after a newer one has already started is discarded.
+  const fetchSeqRef = useRef(0);
+
   const fetchAll = useCallback(async () => {
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
     setError(null);
 
@@ -172,9 +258,16 @@ export function useDataStore() {
     ]);
 
     if (topicsResult.error || boardsResult.error) {
-      setError(topicsResult.error?.message ?? boardsResult.error?.message ?? 'Failed to load data');
-      setLoading(false);
+      // Only surface the error if this is still the most recent request
+      if (seq === fetchSeqRef.current) {
+        setError(topicsResult.error?.message ?? boardsResult.error?.message ?? 'Failed to load data');
+        setLoading(false);
+      }
       return;
+    }
+    // topicTagsResult failure is non-fatal — topics still load, just without tags
+    if (topicTagsResult.error) {
+      console.warn('topic_tags fetch failed:', topicTagsResult.error.message);
     }
 
     const rawTopics = (topicsResult.data as RawTopic[]) ?? [];
@@ -188,6 +281,10 @@ export function useDataStore() {
       names.push(...getTagNames(row.tags));
       tagsByTopic.set(row.topic_id, names);
     });
+
+    // Discard results from a stale (superseded) request — a newer fetchAll
+    // has already started, so applying this older data would regress the UI.
+    if (seq !== fetchSeqRef.current) return;
 
     setTopics(rawTopics.map((raw) => mapTopic(raw, tagsByTopic.get(raw.id) ?? [])));
     setBoards(rawBoards.map((b) => mapBoard(b, rawTopics)));
@@ -398,8 +495,9 @@ export function useDataStore() {
     const { error: err } = await supabase.from('topics').update(updates).eq('id', id);
     if (err) { setError(err?.message ?? 'Failed to update topic'); return; }
 
-    // Tags are stored in topic_tags, not in the topics row
+    // Optimistic update for tags — show immediately before fetchAll completes
     if (data.tags !== undefined) {
+      setTopics((prev) => prev.map((t) => t.id === id ? { ...t, tags: data.tags! } : t));
       await syncTopicTags(supabase, id, data.tags);
     }
 
@@ -743,6 +841,28 @@ export function useDataStore() {
     await fetchAll();
   }, [fetchAll]);
 
+  /**
+   * Autocomplete source for the tag input — matches curated `system` tags
+   * only (not other users' custom tags, which shouldn't be suggested).
+   * Case-insensitive partial match, capped at 5 results.
+   */
+  const searchSystemTags = useCallback(async (query: string): Promise<string[]> => {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    const { data, error: err } = await supabase
+      .from('tags')
+      .select('name')
+      .eq('type', 'system')
+      .ilike('name', `%${trimmed}%`)
+      .order('name')
+      .limit(5);
+    if (err) {
+      console.error('searchSystemTags failed', err.message);
+      return [];
+    }
+    return (data ?? []).map((t: { name: string }) => t.name);
+  }, []);
+
   return {
     boards, topics, loading, error, realtimeStatus, refresh: fetchAll,
     createBoard, updateBoard, deleteBoard, duplicateBoard,
@@ -751,6 +871,7 @@ export function useDataStore() {
     addChecklistItem, deleteChecklistItem, toggleChecklistItem,
     addResource, deleteResource, toggleResource,
     exportData, importData, resetStats, resetData,
+    searchSystemTags,
   };
 }
 

@@ -367,6 +367,7 @@ export default function App() {
           onToggleResource={store.toggleResource}
           onDuplicateTopic={store.duplicateTopic}
           onDeleteTopic={store.deleteTopic}
+          onSearchTags={store.searchSystemTags}
         />
       )}
 
