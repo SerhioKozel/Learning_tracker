@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { GripVertical, Trash2 } from 'lucide-react';
 import CardContent from './CardContent';
+import { getDeadlineUrgency } from '../../utils/deadline';
 import type { Topic } from '../../types';
 
 interface DraggableCardProps {
@@ -17,16 +18,26 @@ export default function DraggableCard({ topic, isDragging, onClick, onDelete }: 
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
 
+  // Deadline urgency gets a subtle left accent bar — a quick-scan signal
+  // across the whole board without needing to open each card. Only
+  // overdue/soon get a visible accent; a distant deadline (normal) doesn't
+  // need to compete for attention, so it stays as the default neutral edge.
+  const urgency = getDeadlineUrgency(topic.deadlineDate);
+  const urgencyBorderClass =
+    urgency === 'overdue' ? 'border-l-rose-500'
+    : urgency === 'soon' ? 'border-l-amber-500'
+    : 'border-l-transparent';
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...listeners}
       {...attributes}
-      className={`group relative w-full rounded-xl border bg-ink-800 ${
+      className={`group relative w-full rounded-xl bg-ink-800 border-y border-r border-l-[3px] ${urgencyBorderClass} ${
         isActiveDrag || isDragging
-          ? 'cursor-grabbing border-sky-500/40 opacity-40 shadow-none'
-          : 'cursor-grab border-white/[0.06] hover:-translate-y-0.5 hover:border-white/[0.1] hover:shadow-lift'
+          ? 'cursor-grabbing border-y-sky-500/40 border-r-sky-500/40 opacity-40 shadow-none'
+          : 'cursor-grab border-y-white/[0.06] border-r-white/[0.06] hover:-translate-y-0.5 hover:border-y-white/[0.1] hover:border-r-white/[0.1] hover:shadow-lift'
       }`}
     >
       {/* Drag handle */}

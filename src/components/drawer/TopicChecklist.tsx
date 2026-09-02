@@ -17,8 +17,6 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
 
   const done  = topic.checklist.filter((c) => c.done).length;
   const total = topic.checklist.length;
-  const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
-  const progressColor = pct === 100 ? 'bg-emerald-400' : 'bg-sky-400';
 
   useEffect(() => {
     if (inputVisible) inputRef.current?.focus();
@@ -59,15 +57,6 @@ export default function TopicChecklist({ topic, onToggle, onDelete, onAdd }: Top
           <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
-
-      {total > 0 && (
-        <div className="mt-2 h-0.5 overflow-hidden rounded-full bg-ink-700">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      )}
 
       {total > 0 && (
         <div className="mt-2 space-y-0.5">

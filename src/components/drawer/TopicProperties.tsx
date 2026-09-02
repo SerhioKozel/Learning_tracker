@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { Tag, Plus, X, CalendarDays, AlertTriangle } from 'lucide-react';
 import { difficultyConfig, boardColorMap } from '../../config';
+import { getDeadlineUrgency, formatDeadline } from '../../utils/deadline';
 import type { Difficulty, Topic, Board } from '../../types';
 
 interface TopicPropertiesProps {
@@ -95,15 +96,9 @@ export default function TopicProperties({
   }
 
   // ── Deadline ────────────────────────────────────────────────────────────────
-  const isOverdue = topic.deadlineDate
-    ? new Date(topic.deadlineDate) < new Date(new Date().toDateString())
-    : false;
+  const deadlineUrgency = getDeadlineUrgency(topic.deadlineDate);
 
-  const formattedDeadline = topic.deadlineDate
-    ? new Date(topic.deadlineDate).toLocaleDateString(undefined, {
-        day: 'numeric', month: 'short', year: 'numeric',
-      })
-    : null;
+  const formattedDeadline = topic.deadlineDate ? formatDeadline(topic.deadlineDate) : null;
 
   return (
     <section>
@@ -134,53 +129,86 @@ export default function TopicProperties({
           </div>
         </div>
 
-        {/* ── Deadline ── */}
+        {/* ── Deadline ─────────────────────────────────────────────────────────
+          The decorative chip sits in normal flow (sizes the container). The
+          real <input type="date"> is absolutely positioned exactly on top of
+          it, invisible (opacity:0) but fully interactive — so every click
+          within the row lands directly on the native input, which is the
+          only 100%-reliable cross-browser way to open the picker (no
+          label/htmlFor delegation, no showPicker() calls, no focus tricks).
+          The clear (X) button sits in an even higher stacking layer so its
+          own clicks are intercepted before reaching the input underneath.
+        ── */}
         <div className="flex items-center gap-3">
           <span className="w-20 shrink-0 text-xs text-ink-500">Deadline</span>
           <div className="relative flex-1">
+            {/* Decorative layer — establishes size, shows content, never receives clicks */}
+            <div className={`pointer-events-none flex w-full items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs ${
+              !formattedDeadline
+                ? 'border-dashed border-white/[0.08] text-ink-600'
+                : deadlineUrgency === 'overdue'
+                ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                : deadlineUrgency === 'soon'
+                ? 'border-amber-500/30 bg-amber-500/[0.07] text-amber-300'
+                : 'border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-300'
+            }`}>
+              {formattedDeadline && deadlineUrgency === 'overdue' && (
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+              )}
+              <span className={`flex-1 ${formattedDeadline ? '' : 'flex items-center gap-1.5'}`}>
+                {!formattedDeadline && <CalendarDays className="h-3 w-3 shrink-0" />}
+                {formattedDeadline ?? 'Add deadline…'}
+              </span>
+              {/* Calendar icon at the end of the field, as requested */}
+              <CalendarDays className={`h-3 w-3 shrink-0 ${
+                deadlineUrgency === 'overdue' ? 'text-rose-400'
+                : deadlineUrgency === 'soon' ? 'text-amber-400'
+                : deadlineUrgency === 'normal' ? 'text-emerald-400'
+                : 'text-ink-500'
+              }`} />
+              {/* Reserve space so text never runs under the clear button */}
+              {formattedDeadline && <span className="w-4 shrink-0" />}
+            </div>
+
+            {/* Real native input — invisible, on top, receives every click */}
             <input
-              id="deadline-picker"
               type="date"
               value={topic.deadlineDate ?? ''}
               onChange={(e) => onDeadlineDateChange(e.target.value)}
-              style={{
-                position: 'absolute',
-                top: 0, left: 0,
-                width: '1px', height: '1px',
-                opacity: 0,
-                pointerEvents: 'none',
+              onClick={(e) => {
+                // By default, a native date input only opens its picker when
+                // you click the calendar-icon sub-region — clicking the rest
+                // of the field just focuses it. Since we've stretched the
+                // input to cover our whole decorative chip, calling
+                // showPicker() explicitly here — synchronously, on the same
+                // element, inside the click handler — makes any point in the
+                // field open the picker, not just the icon. Safari doesn't
+                // support showPicker(); it falls through silently there, but
+                // Safari's own date input already opens on a plain click.
+                (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
               }}
-              tabIndex={-1}
+              // Not exactly opacity:0 on purpose — some Chromium versions
+              // treat a fully-invisible (opacity:0) input as "not really
+              // there" and silently refuse to open its native picker, as a
+              // clickjacking mitigation (invisible overlay date-pickers are
+              // a known abuse pattern). 0.01 is visually indistinguishable
+              // from 0 but doesn't trip that heuristic — hover/cursor already
+              // worked fine at opacity:0 (hit-testing isn't affected), which
+              // is exactly the symptom that pointed here: cursor changes on
+              // hover, but the click silently does nothing.
+              className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-[0.01]"
+              style={{ colorScheme: 'dark' }}
             />
-            {formattedDeadline ? (
-              <div className={`flex w-full items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs ${
-                isOverdue
-                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                  : 'border-white/[0.08] bg-ink-800 text-ink-200'
-              }`}>
-                {isOverdue
-                  ? <AlertTriangle className="h-3 w-3 shrink-0" />
-                  : <CalendarDays className="h-3 w-3 shrink-0 text-ink-500" />
-                }
-                <label htmlFor="deadline-picker" className="flex-1 cursor-pointer hover:underline">
-                  {formattedDeadline}
-                </label>
-                <button
-                  onClick={() => onDeadlineDateChange('')}
-                  className="ml-auto shrink-0 opacity-50 transition-opacity hover:opacity-100"
-                  title="Clear deadline"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ) : (
-              <label
-                htmlFor="deadline-picker"
-                className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-white/[0.08] px-3 py-1.5 text-xs text-ink-600 transition-colors hover:border-white/[0.15] hover:text-ink-400"
+
+            {/* Clear button — above the input so its click never opens the picker */}
+            {formattedDeadline && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeadlineDateChange(''); }}
+                className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full p-0.5 text-current opacity-50 transition-opacity hover:opacity-100"
+                title="Clear deadline"
               >
-                <CalendarDays className="h-3 w-3" />
-                Add deadline…
-              </label>
+                <X className="h-3 w-3" />
+              </button>
             )}
           </div>
         </div>

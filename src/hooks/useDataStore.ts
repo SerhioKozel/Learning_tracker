@@ -48,6 +48,22 @@ interface RawTopic {
 
 function mapBoard(raw: RawBoard, topics: RawTopic[]): Board {
   const boardTopics = topics.filter((t) => t.board_id === raw.id);
+
+  // "Updated" should reflect real activity, not just edits to the board's own
+  // metadata (title/description/color/icon) — those are set once and rarely
+  // touched again, while topics inside the board are worked on constantly.
+  // Showing only the board-row timestamp made this field almost always stale
+  // and misleading, and made BoardsList's "sort by recent" effectively inert
+  // (boards would never reorder from normal day-to-day topic work). We take
+  // whichever is more recent: the board's own timestamp, or its most
+  // recently updated topic.
+  const latestTopicUpdate = boardTopics.reduce<string | null>(
+    (latest, t) => (latest === null || t.updated_at > latest ? t.updated_at : latest),
+    null,
+  );
+  const effectiveUpdatedAt =
+    latestTopicUpdate && latestTopicUpdate > raw.updated_at ? latestTopicUpdate : raw.updated_at;
+
   return {
     id: raw.id,
     title: raw.title,
@@ -56,8 +72,8 @@ function mapBoard(raw: RawBoard, topics: RawTopic[]): Board {
     icon: raw.icon,
     topicCount: boardTopics.length,
     completedCount: boardTopics.filter((t) => t.status === 'completed').length,
-    updatedAt: timeAgo(raw.updated_at),
-    updatedAtRaw: raw.updated_at,
+    updatedAt: timeAgo(effectiveUpdatedAt),
+    updatedAtRaw: effectiveUpdatedAt,
     createdAt: raw.created_at.slice(0, 10),
   };
 }
@@ -228,6 +244,14 @@ async function syncTopicTags(
   }
 }
 
+// ─── Checklist progress helper ────────────────────────────────────────────────
+
+/** Computes progress (0-100) from checklist completion. Returns null if no items. */
+function calcProgress(checklist: ChecklistItem[]): number | null {
+  if (checklist.length === 0) return null;
+  return Math.round(checklist.filter((c) => c.done).length / checklist.length * 100);
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useDataStore() {
@@ -246,10 +270,19 @@ export function useDataStore() {
   // fetchAll that finishes after a newer one has already started is discarded.
   const fetchSeqRef = useRef(0);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     const seq = ++fetchSeqRef.current;
-    setLoading(true);
-    setError(null);
+    // `silent` is the key fix here: fetchAll() is called both for the initial
+    // app load (where a full-screen spinner is correct) AND after every
+    // mutation — tag add, difficulty change, drag-and-drop, etc. — as a
+    // "resync with the server" step. Unconditionally toggling `loading` for
+    // BOTH cases meant every trivial edit wiped the entire board out from
+    // under the user and replaced it with the loading screen for the round
+    // trip's duration — visible, jarring "reload" flicker behind the drawer.
+    // Only non-silent callers (initial mount, the error screen's Retry
+    // button) should show that full-screen state.
+    if (!silent) setLoading(true);
 
     const [topicsResult, boardsResult, topicTagsResult] = await Promise.all([
       supabase.from('topics').select('*').order('updated_at', { ascending: false }),
@@ -261,7 +294,7 @@ export function useDataStore() {
       // Only surface the error if this is still the most recent request
       if (seq === fetchSeqRef.current) {
         setError(topicsResult.error?.message ?? boardsResult.error?.message ?? 'Failed to load data');
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
       return;
     }
@@ -288,7 +321,8 @@ export function useDataStore() {
 
     setTopics(rawTopics.map((raw) => mapTopic(raw, tagsByTopic.get(raw.id) ?? [])));
     setBoards(rawBoards.map((b) => mapBoard(b, rawTopics)));
-    setLoading(false);
+    setError(null);
+    if (!silent) setLoading(false);
   }, []);
 
   const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
@@ -305,12 +339,12 @@ export function useDataStore() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'boards' },
-        () => { fetchAll(); },
+        () => { fetchAll({ silent: true }); },
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'topics' },
-        () => { fetchAll(); },
+        () => { fetchAll({ silent: true }); },
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') setRealtimeStatus('connected');
@@ -341,7 +375,7 @@ export function useDataStore() {
       .maybeSingle();
 
     if (err || !row) { setError(err?.message ?? 'Failed to create board'); return null; }
-    await fetchAll();
+    await fetchAll({ silent: true });
     return mapBoard(row as RawBoard, []);
   }, [fetchAll]);
 
@@ -357,13 +391,13 @@ export function useDataStore() {
 
     const { error: err } = await supabase.from('boards').update(updates).eq('id', id);
     if (err) { setError(err.message); return; }
-    await fetchAll();
+    await fetchAll({ silent: true });
   }, [fetchAll]);
 
   const deleteBoard = useCallback(async (id: string): Promise<void> => {
     const { error: err } = await supabase.from('boards').delete().eq('id', id);
     if (err) { setError(err.message); return; }
-    await fetchAll();
+    await fetchAll({ silent: true });
   }, [fetchAll]);
 
   const duplicateBoard = useCallback(async (id: string): Promise<void> => {
@@ -420,7 +454,7 @@ export function useDataStore() {
         }
       }
     }
-    await fetchAll();
+    await fetchAll({ silent: true });
   }, [fetchAll]);
 
   // ─── Topic mutations ────────────────────────────────────────────────────────
@@ -450,7 +484,7 @@ export function useDataStore() {
       .maybeSingle();
 
     if (err || !row) { setError(err?.message ?? 'Failed to create topic'); return null; }
-    await fetchAll();
+    await fetchAll({ silent: true });
     return mapTopic(row as RawTopic);
   }, [fetchAll]);
 
@@ -501,7 +535,7 @@ export function useDataStore() {
       await syncTopicTags(supabase, id, data.tags);
     }
 
-    await fetchAll();
+    await fetchAll({ silent: true });
   }, [fetchAll]);
 
   const duplicateTopic = useCallback(async (
@@ -542,7 +576,7 @@ export function useDataStore() {
       await syncTopicTags(supabase, (row as RawTopic).id, topic.tags);
     }
 
-    await fetchAll();
+    await fetchAll({ silent: true });
     return mapTopic(row as RawTopic, topic.tags);
   }, [topics, fetchAll]);
 
@@ -593,7 +627,7 @@ export function useDataStore() {
       await syncTopicTags(supabase, (row as RawTopic).id, libraryTopic.tags);
     }
 
-    await fetchAll();
+    await fetchAll({ silent: true });
     return mapTopic(row as RawTopic, libraryTopic.tags);
   }, [fetchAll]);
 
@@ -615,9 +649,24 @@ export function useDataStore() {
     const newHistory = [...topic.history, historyEntry].slice(-50);
 
     // Apply optimistically
-    setTopics((prev) => prev.map((t) =>
+    const updatedTopics = topics.map((t) =>
       t.id === id ? { ...t, status, history: newHistory } : t,
-    ));
+    );
+    setTopics(updatedTopics);
+
+    // `board.completedCount` is a derived field normally recomputed inside
+    // fetchAll(). Since this mutation deliberately skips fetchAll() (see
+    // DL-012 — status changes rely on Realtime to eventually resync), we
+    // recompute it here too, from the same freshly-updated topics array.
+    // Without this, the board header's "N completed" count would lag behind
+    // the per-column counts (which read live from `topics`) until Realtime
+    // catches up — a visible, confusing inconsistency right after a drag.
+    setBoards((prev) => prev.map((b) => b.id === topic.boardId
+      ? {
+          ...b,
+          completedCount: updatedTopics.filter((t) => t.boardId === b.id && t.status === 'completed').length,
+        }
+      : b));
 
     const { error: err } = await supabase
       .from('topics')
@@ -629,13 +678,19 @@ export function useDataStore() {
       setTopics((prev) => prev.map((t) =>
         t.id === id ? { ...t, status: topic.status, history: topic.history } : t,
       ));
+      setBoards((prev) => prev.map((b) => b.id === topic.boardId
+        ? {
+            ...b,
+            completedCount: topics.filter((t) => t.boardId === b.id && t.status === 'completed').length,
+          }
+        : b));
     }
   }, [topics]);
 
   const deleteTopic = useCallback(async (id: string): Promise<void> => {
     const { error: err } = await supabase.from('topics').delete().eq('id', id);
     if (err) { setError(err.message); return; }
-    await fetchAll();
+    await fetchAll({ silent: true });
   }, [fetchAll]);
 
   // ─── Optimistic sub-item mutations ─────────────────────────────────────────
@@ -794,7 +849,7 @@ export function useDataStore() {
         );
       }
 
-      await fetchAll();
+      await fetchAll({ silent: true });
       return true;
     } catch {
       return false;
@@ -832,13 +887,13 @@ export function useDataStore() {
       if (failed?.error) { setError(failed.error.message); return; }
     }
 
-    await fetchAll();
+    await fetchAll({ silent: true });
   }, [topics, fetchAll]);
 
   const resetData = useCallback(async (): Promise<void> => {
     await supabase.from('topics').delete().gte('created_at', '2000-01-01');
     await supabase.from('boards').delete().gte('created_at', '2000-01-01');
-    await fetchAll();
+    await fetchAll({ silent: true });
   }, [fetchAll]);
 
   /**

@@ -1,5 +1,6 @@
 import { Flag } from 'lucide-react';
 import { difficultyConfig } from '../../config';
+import { getDeadlineUrgency } from '../../utils/deadline';
 import type { Topic } from '../../types';
 
 export default function CardContent({ topic }: { topic: Topic }) {
@@ -11,9 +12,12 @@ export default function CardContent({ topic }: { topic: Topic }) {
   const pct = hasChecklist ? Math.round((doneCount / totalCount) * 100) : 0;
   const progressColor = pct === 100 ? 'bg-emerald-400' : 'bg-sky-400/70';
 
-  const isOverdue = topic.deadlineDate
-    ? new Date(topic.deadlineDate) < new Date(new Date().toDateString())
-    : false;
+  const urgency = getDeadlineUrgency(topic.deadlineDate);
+  const deadlineTextColor =
+    urgency === 'overdue' ? 'text-rose-400'
+    : urgency === 'soon' ? 'text-amber-400'
+    : urgency === 'normal' ? 'text-emerald-400'
+    : 'text-ink-600';
 
   return (
     <>
@@ -45,12 +49,12 @@ export default function CardContent({ topic }: { topic: Topic }) {
         </div>
       )}
 
-      <div className="mt-2.5 flex items-center justify-between border-t border-white/[0.04] pt-2.5">
+      <div className="mt-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {topic.deadlineDate && (
-            <span className={`flex items-center gap-1 text-[10px] ${isOverdue ? 'text-rose-400' : 'text-ink-600'}`}>
+            <span className={`flex items-center gap-1 text-[10px] ${deadlineTextColor}`}>
               <Flag className="h-3 w-3" />
-              {isOverdue ? 'Overdue' : topic.deadlineDate.slice(5)}
+              {urgency === 'overdue' ? 'Overdue' : topic.deadlineDate.slice(5)}
             </span>
           )}
         </div>
